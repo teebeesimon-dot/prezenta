@@ -271,7 +271,7 @@ export default function EditEventForm({ event }: EditEventFormProps) {
               id="pricePerHour"
               type="number"
               min={0}
-              step={10}
+              step={1}
               value={pricePerHour}
               onChange={(e) => setPricePerHour(e.target.value)}
               className={inputClassName}
@@ -290,7 +290,7 @@ export default function EditEventForm({ event }: EditEventFormProps) {
             id="monthlyPrice"
             type="number"
             min={0}
-            step={10}
+            step="any"
             value={monthlyPrice}
             onChange={(e) => setMonthlyPrice(e.target.value)}
             className={inputClassName}
