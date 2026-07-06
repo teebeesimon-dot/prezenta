@@ -7,6 +7,8 @@ import type { Event, Series } from "@/lib/types";
 interface EventCardProps {
   event: Event;
   series?: Series;
+  /** True when the user is only a member/invitee of this event (not the owner). */
+  invited?: boolean;
 }
 
 function formatDate(date: string): string {
@@ -25,7 +27,7 @@ function frequencyLabel(frequency: Series["frequency"]): string {
   );
 }
 
-export default function EventCard({ event, series }: EventCardProps) {
+export default function EventCard({ event, series, invited }: EventCardProps) {
   const isClosed = series?.status === "closed";
 
   return (
@@ -38,9 +40,16 @@ export default function EventCard({ event, series }: EventCardProps) {
         <h3 className="text-lg font-bold tracking-tight text-card-foreground">
           {event.title}
         </h3>
-        <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-          {SPORT_LABELS[event.sport] ?? event.sport}
-        </span>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+          {invited ? (
+            <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+              Invitat
+            </span>
+          ) : null}
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+            {SPORT_LABELS[event.sport] ?? event.sport}
+          </span>
+        </div>
       </div>
 
       {series ? (

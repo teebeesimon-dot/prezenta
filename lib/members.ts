@@ -11,7 +11,9 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { SPORT_LABELS } from "@/lib/labels";
-import type { Sport } from "@/lib/types";
+import { mapFirestoreEvent } from "@/lib/events";
+import { mapFirestoreSeries } from "@/lib/series";
+import type { Event, Series, Sport } from "@/lib/types";
 
 export type GroupType = "series" | "event";
 
@@ -211,4 +213,168 @@ export function subscribeToGroupMembers(
     },
     () => onChange([])
   );
+}
+
+
+/**
+ * A group the current user was invited to (is a member of but does not own),
+ * resolved to the concrete event to display on the home screen.
+ */
+export interface MemberEventItem {
+  kind: "member-event" | "member-series";
+  groupId: string;
+  event: Event;
+  series?: Series;
+}
+
+/**
+ * Subscribe to the events the current user is *invited to* — i.e. groups they
+ * are a member of but do NOT own (owned events are already shown separately).
+ *
+ * Stays live: for a standalone event it listens to that event doc; for a series
+ * it listens to the series doc and, in turn, to whichever occurrence is current
+ * (`currentEventId` can advance over time as the owner materializes new dates).
+ * Transient permission errors (e.g. before auth attaches) yield an empty list.
+ */
+export function subscribeMemberEvents(
+  userId: string | undefined,
+  onChange: (items: MemberEventItem[]) => void
+): () => void {
+  if (!userId) {
+    onChange([]);
+    return () => {};
+  }
+
+  const groupUnsubs = new Map<string, () => void>();
+  const items = new Map<string, MemberEventItem>();
+
+  function emit() {
+    onChange(Array.from(items.values()));
+  }
+
+  function subscribeGroup(
+    groupId: string,
+    groupType: GroupType
+  ): () => void {
+    if (groupType === "event") {
+      return onSnapshot(
+        doc(db, "events", groupId),
+        (snap) => {
+          if (snap.exists()) {
+            items.set(groupId, {
+              kind: "member-event",
+              groupId,
+              event: mapFirestoreEvent(snap.id, snap.data()),
+            });
+          } else {
+            items.delete(groupId);
+          }
+          emit();
+        },
+        () => {
+          items.delete(groupId);
+          emit();
+        }
+      );
+    }
+
+    // Series: listen to the series doc and follow its current occurrence.
+    let eventUnsub: (() => void) | null = null;
+    let currentSeries: Series | null = null;
+    let currentEvent: Event | null = null;
+    let listenedEventId = "";
+
+    function emitSeries() {
+      if (currentSeries && currentEvent) {
+        items.set(groupId, {
+          kind: "member-series",
+          groupId,
+          event: currentEvent,
+          series: currentSeries,
+        });
+      } else {
+        items.delete(groupId);
+      }
+      emit();
+    }
+
+    const seriesUnsub = onSnapshot(
+      doc(db, "series", groupId),
+      (snap) => {
+        if (!snap.exists()) {
+          currentSeries = null;
+          emitSeries();
+          return;
+        }
+        currentSeries = mapFirestoreSeries(snap.id, snap.data());
+        if (currentSeries.currentEventId !== listenedEventId) {
+          listenedEventId = currentSeries.currentEventId;
+          currentEvent = null;
+          if (eventUnsub) eventUnsub();
+          eventUnsub = onSnapshot(
+            doc(db, "events", listenedEventId),
+            (esnap) => {
+              currentEvent = esnap.exists()
+                ? mapFirestoreEvent(esnap.id, esnap.data())
+                : null;
+              emitSeries();
+            },
+            () => {
+              currentEvent = null;
+              emitSeries();
+            }
+          );
+        } else {
+          emitSeries();
+        }
+      },
+      () => {
+        currentSeries = null;
+        emitSeries();
+      }
+    );
+
+    return () => {
+      seriesUnsub();
+      if (eventUnsub) eventUnsub();
+    };
+  }
+
+  const membersUnsub = onSnapshot(
+    query(collection(db, "members"), where("userId", "==", userId)),
+    (snap) => {
+      const seen = new Set<string>();
+      snap.docs.forEach((d) => {
+        const data = d.data() as {
+          groupId: string;
+          groupType: GroupType;
+          ownerId: string;
+        };
+        if (data.ownerId === userId) return;
+        seen.add(data.groupId);
+        if (!groupUnsubs.has(data.groupId)) {
+          groupUnsubs.set(
+            data.groupId,
+            subscribeGroup(data.groupId, data.groupType)
+          );
+        }
+      });
+      for (const key of Array.from(groupUnsubs.keys())) {
+        if (!seen.has(key)) {
+          groupUnsubs.get(key)!();
+          groupUnsubs.delete(key);
+          items.delete(key);
+        }
+      }
+      emit();
+    },
+    () => onChange([])
+  );
+
+  return () => {
+    membersUnsub();
+    for (const u of groupUnsubs.values()) u();
+    groupUnsubs.clear();
+    items.clear();
+  };
 }
