@@ -6,7 +6,7 @@ import { ROLE_LABELS } from "@/lib/roles";
 import { LogoMark } from "@/components/Logo";
 
 export default function AuthButton() {
-  const { user, profile, loading, isSuperAdmin, signInWithGoogle, signOutUser } =
+  const { user, profile, loading, authError, isSuperAdmin, signInWithGoogle, signOutUser } =
     useAuth();
   if (loading && !user) {
     return (
@@ -23,14 +23,17 @@ export default function AuthButton() {
 
   if (!user) {
     return (
-      <button
-        type="button"
-        onClick={signInWithGoogle}
-        className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground transition hover:bg-muted"
-      >
-        <GoogleIcon />
-        Sign in with Google
-      </button>
+      <div className="flex flex-col items-end gap-2">
+        <button
+          type="button"
+          onClick={signInWithGoogle}
+          className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground transition hover:bg-muted"
+        >
+          <GoogleIcon />
+          Sign in with Google
+        </button>
+        {authError && <p className="max-w-xs text-right text-xs text-destructive">{authError}</p>}
+      </div>
     );
   }
 

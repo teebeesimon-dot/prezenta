@@ -28,6 +28,7 @@ interface AuthContextValue {
   profile: UserProfile | null;
   role: UserRole | null;
   loading: boolean;
+  authError: string | null;
   canCreateEvents: boolean;
   isSuperAdmin: boolean;
   signInWithGoogle: () => Promise<void>;
@@ -36,15 +37,26 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function getAuthErrorMessage(error: unknown) {
+  const code = (error as { code?: string })?.code ?? "";
+  if (code === "auth/unauthorized-domain") return "Acest domeniu nu este autorizat în Firebase pentru autentificare.";
+  if (code === "auth/operation-not-supported-in-this-environment") return "Autentificarea Google nu este disponibilă în acest browser.";
+  if (code === "auth/network-request-failed") return "Conexiunea către Firebase a eșuat. Verifică internetul și încearcă din nou.";
+  return "Autentificarea Google a eșuat. Încearcă din nou.";
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     // Complete any sign-in that used the redirect fallback.
     getRedirectResult(auth).catch((error) => {
       console.error("[v0] getRedirectResult error:", error);
+      setAuthError(getAuthErrorMessage(error));
+      setLoading(false);
     });
   }, []);
 
@@ -95,6 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const signInWithGoogle = useCallback(async () => {
+    setAuthError(null);
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
     // Use a full-page redirect instead of a popup. Popups are immediately
@@ -114,12 +127,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile,
       role,
       loading,
+      authError,
       canCreateEvents: canCreateEvents(role),
       isSuperAdmin: isSuperAdmin(role),
       signInWithGoogle,
       signOutUser,
     }),
-    [user, profile, role, loading, signInWithGoogle, signOutUser]
+    [user, profile, role, loading, authError, signInWithGoogle, signOutUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
