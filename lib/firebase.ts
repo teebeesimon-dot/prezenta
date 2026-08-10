@@ -3,6 +3,7 @@ import {
   browserLocalPersistence,
   browserPopupRedirectResolver,
   getAuth,
+  indexedDBLocalPersistence,
   initializeAuth,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -38,10 +39,10 @@ function createAuth() {
   }
   try {
     return initializeAuth(app, {
-      // IndexedDB can stall indefinitely in embedded previews, private mode,
-      // and some Safari contexts. Local storage is more reliable for this app
-      // and still keeps the session across normal page reloads.
-      persistence: browserLocalPersistence,
+      // Try IndexedDB first so existing sessions (saved there previously)
+      // keep working, and fall back to localStorage if IndexedDB stalls or
+      // is unavailable (embedded previews, private mode, some Safari contexts).
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence],
       popupRedirectResolver: browserPopupRedirectResolver,
     });
   } catch {
