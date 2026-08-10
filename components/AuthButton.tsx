@@ -1,21 +1,48 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { ROLE_LABELS } from "@/lib/roles";
 import { LogoMark } from "@/components/Logo";
 
-export default function AuthButton() {
-  const { user, profile, loading, isSuperAdmin, signInWithGoogle, signOutUser } =
-    useAuth();
+function useIsEmbeddedInIframe() {
+  const [isEmbedded, setIsEmbedded] = useState(false);
+  useEffect(() => {
+    try {
+      setIsEmbedded(window.self !== window.top);
+    } catch {
+      // Cross-origin access to window.top throws, which itself means we're embedded.
+      setIsEmbedded(true);
+    }
+  }, []);
+  return isEmbedded;
+}
 
-  if (loading) {
+export default function AuthButton() {
+  const { user, profile, loading, authError, isSuperAdmin, signInWithGoogle, signOutUser } =
+    useAuth();
+  const isEmbedded = useIsEmbeddedInIframe();
+
+  if (!user && isEmbedded) {
     return (
-      <div className="h-10 w-28 animate-pulse rounded-xl bg-muted" />
+      <div className="flex flex-col items-end gap-2">
+        <button
+          type="button"
+          onClick={() => window.open(window.location.href, "_blank", "noopener,noreferrer")}
+          className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground transition hover:bg-muted"
+        >
+          <GoogleIcon />
+          Deschide într-un tab nou pentru login
+        </button>
+        <p className="max-w-xs text-right text-xs text-muted-foreground">
+          Login-ul Google nu funcționează în acest preview încorporat. Deschide linkul într-un tab de browser separat.
+        </p>
+      </div>
     );
   }
 
-  if (!user) {
+  if (loading && !user) {
     return (
       <button
         type="button"
@@ -25,6 +52,22 @@ export default function AuthButton() {
         <GoogleIcon />
         Sign in with Google
       </button>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-end gap-2">
+        <button
+          type="button"
+          onClick={signInWithGoogle}
+          className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground transition hover:bg-muted"
+        >
+          <GoogleIcon />
+          Sign in with Google
+        </button>
+        {authError && <p className="max-w-xs text-right text-xs text-destructive">{authError}</p>}
+      </div>
     );
   }
 

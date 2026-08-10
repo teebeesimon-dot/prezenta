@@ -4,7 +4,6 @@ import {
   getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
-  signInWithPopup,
   signInWithRedirect,
   signOut,
   type User,
@@ -29,6 +28,7 @@ interface AuthContextValue {
   profile: UserProfile | null;
   role: UserRole | null;
   loading: boolean;
+  authError: string | null;
   canCreateEvents: boolean;
   isSuperAdmin: boolean;
   signInWithGoogle: () => Promise<void>;
@@ -37,22 +37,35 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function getAuthErrorMessage(error: unknown) {
+  const code = (error as { code?: string })?.code ?? "";
+  if (code === "auth/unauthorized-domain") return "Acest domeniu nu este autorizat în Firebase pentru autentificare.";
+  if (code === "auth/operation-not-supported-in-this-environment") return "Autentificarea Google nu este disponibilă în acest browser.";
+  if (code === "auth/network-request-failed") return "Conexiunea către Firebase a eșuat. Verifică internetul și încearcă din nou.";
+  return code
+    ? `Autentificarea Google a eșuat (${code}). Verifică domeniul autorizat în Firebase.`
+    : "Autentificarea Google a eșuat. Încearcă din nou.";
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     // Complete any sign-in that used the redirect fallback.
     getRedirectResult(auth).catch((error) => {
       console.error("[v0] getRedirectResult error:", error);
+      setAuthError(getAuthErrorMessage(error));
+      setLoading(false);
     });
   }, []);
 
   useEffect(() => {
     // Safety net: never let the UI hang on an unresolved auth state
     // (e.g. iOS Safari blocking storage). Show the signed-out UI after a delay.
-    const timeout = setTimeout(() => setLoading(false), 6000);
+    const timeout = setTimeout(() => setLoading(false), 2500);
 
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
       // Resolve the loading state immediately based on auth, so the UI is
@@ -96,26 +109,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const signInWithGoogle = useCallback(async () => {
+    setAuthError(null);
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
     try {
-      await signInWithPopup(auth, provider);
+      // Use a full-page redirect instead of a popup. Popups are immediately
+      // closed by embedded previews, Safari, and browsers with strict blockers.
+      await signInWithRedirect(auth, provider);
     } catch (error) {
-      const code = (error as { code?: string })?.code ?? "";
-      // If the popup is blocked, closed, or otherwise unavailable,
-      // fall back to a full-page redirect, which works everywhere.
-      const popupFailed =
-        code === "auth/popup-blocked" ||
-        code === "auth/popup-closed-by-user" ||
-        code === "auth/cancelled-popup-request" ||
-        code === "auth/operation-not-supported-in-this-environment";
-
-      if (popupFailed) {
-        await signInWithRedirect(auth, provider);
-        return;
-      }
-
-      console.error("[v0] signInWithGoogle error:", error);
-      throw error;
+      console.error("[v0] signInWithGoogle redirect error:", error);
+      setAuthError(getAuthErrorMessage(error));
+      setLoading(false);
     }
   }, []);
 
@@ -131,12 +135,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile,
       role,
       loading,
+      authError,
       canCreateEvents: canCreateEvents(role),
       isSuperAdmin: isSuperAdmin(role),
       signInWithGoogle,
       signOutUser,
     }),
-    [user, profile, role, loading, signInWithGoogle, signOutUser]
+    [user, profile, role, loading, authError, signInWithGoogle, signOutUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
