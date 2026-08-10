@@ -42,7 +42,9 @@ function getAuthErrorMessage(error: unknown) {
   if (code === "auth/unauthorized-domain") return "Acest domeniu nu este autorizat în Firebase pentru autentificare.";
   if (code === "auth/operation-not-supported-in-this-environment") return "Autentificarea Google nu este disponibilă în acest browser.";
   if (code === "auth/network-request-failed") return "Conexiunea către Firebase a eșuat. Verifică internetul și încearcă din nou.";
-  return "Autentificarea Google a eșuat. Încearcă din nou.";
+  return code
+    ? `Autentificarea Google a eșuat (${code}). Verifică domeniul autorizat în Firebase.`
+    : "Autentificarea Google a eșuat. Încearcă din nou.";
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -110,9 +112,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthError(null);
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
-    // Use a full-page redirect instead of a popup. Popups are immediately
-    // closed by embedded previews, Safari, and browsers with strict blockers.
-    await signInWithRedirect(auth, provider);
+    try {
+      // Use a full-page redirect instead of a popup. Popups are immediately
+      // closed by embedded previews, Safari, and browsers with strict blockers.
+      await signInWithRedirect(auth, provider);
+    } catch (error) {
+      console.error("[v0] signInWithGoogle redirect error:", error);
+      setAuthError(getAuthErrorMessage(error));
+      setLoading(false);
+    }
   }, []);
 
   const signOutUser = useCallback(async () => {
