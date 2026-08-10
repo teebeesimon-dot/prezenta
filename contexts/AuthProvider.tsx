@@ -4,7 +4,6 @@ import {
   getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
-  signInWithPopup,
   signInWithRedirect,
   signOut,
   type User,
@@ -97,26 +96,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = useCallback(async () => {
     const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      const code = (error as { code?: string })?.code ?? "";
-      // If the popup is blocked, closed, or otherwise unavailable,
-      // fall back to a full-page redirect, which works everywhere.
-      const popupFailed =
-        code === "auth/popup-blocked" ||
-        code === "auth/popup-closed-by-user" ||
-        code === "auth/cancelled-popup-request" ||
-        code === "auth/operation-not-supported-in-this-environment";
-
-      if (popupFailed) {
-        await signInWithRedirect(auth, provider);
-        return;
-      }
-
-      console.error("[v0] signInWithGoogle error:", error);
-      throw error;
-    }
+    provider.setCustomParameters({ prompt: "select_account" });
+    // Use a full-page redirect instead of a popup. Popups are immediately
+    // closed by embedded previews, Safari, and browsers with strict blockers.
+    await signInWithRedirect(auth, provider);
   }, []);
 
   const signOutUser = useCallback(async () => {
