@@ -16,6 +16,7 @@ import {
   formatTimeRange,
 } from "@/lib/pricing";
 import { getSeries } from "@/lib/series";
+import { FOOTBALL_FORMATS, getDefaultFootballFormat, type FootballFormat } from "@/lib/football-formats";
 import type { Event, PaymentModel, Sport } from "@/lib/types";
 
 interface EditEventFormProps {
@@ -54,9 +55,10 @@ export default function EditEventForm({ event }: EditEventFormProps) {
   const [location, setLocation] = useState<EventLocation | null>(() =>
     getInitialLocation(event)
   );
-  const [maxParticipants, setMaxParticipants] = useState(
-    String(event.maxParticipants)
+  const [footballFormat, setFootballFormat] = useState<FootballFormat>(
+    event.footballFormat ?? getDefaultFootballFormat(event.maxParticipants)
   );
+  const [maxParticipants, setMaxParticipants] = useState(String(event.maxParticipants));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -106,7 +108,8 @@ export default function EditEventForm({ event }: EditEventFormProps) {
         date,
         time,
         durationMinutes,
-        maxParticipants: Number(maxParticipants),
+        maxParticipants: sport === "football" ? (FOOTBALL_FORMATS.find((format) => format.value === footballFormat)?.totalPlayers ?? 12) : Number(maxParticipants),
+        ...(sport === "football" ? { footballFormat } : {}),
         updatedAt: Timestamp.now(),
         ...toFirestoreLocation(location),
       };
@@ -114,6 +117,12 @@ export default function EditEventForm({ event }: EditEventFormProps) {
       // Monthly series: price lives on the series doc, not the occurrence.
       if (isSeries && paymentModel === "monthly") {
         await updateDoc(doc(db, "events", event.id), baseUpdate);
+        if (event.seriesId && sport === "football") {
+          await updateDoc(doc(db, "series", event.seriesId), {
+            footballFormat,
+            maxParticipants: Number(baseUpdate.maxParticipants),
+          });
+        }
         if (event.seriesId) {
           await updateDoc(doc(db, "series", event.seriesId), {
             monthlyPrice: monthlyValue > 0 ? monthlyValue : null,
@@ -126,9 +135,10 @@ export default function EditEventForm({ event }: EditEventFormProps) {
           pricePerHour: priceValue > 0 ? priceValue : null,
         });
         // "From now on" → also update the series default for future occurrences.
-        if (isSeries && priceScope === "series" && event.seriesId) {
+        if (isSeries && event.seriesId) {
           await updateDoc(doc(db, "series", event.seriesId), {
-            pricePerHour: priceValue > 0 ? priceValue : null,
+            ...(priceScope === "series" ? { pricePerHour: priceValue > 0 ? priceValue : null } : {}),
+            ...(sport === "football" ? { footballFormat, maxParticipants: Number(baseUpdate.maxParticipants) } : {}),
           });
         }
       }
@@ -325,20 +335,20 @@ export default function EditEventForm({ event }: EditEventFormProps) {
         initialInputValue={!event.placeId ? event.location : undefined}
       />
 
-      <div>
-        <label htmlFor="maxParticipants" className={labelClassName}>
-          Număr maxim participanți
-        </label>
-        <input
-          id="maxParticipants"
-          type="number"
-          required
-          min={2}
-          value={maxParticipants}
-          onChange={(e) => setMaxParticipants(e.target.value)}
-          className={inputClassName}
-        />
-      </div>
+      {sport === "football" ? (
+        <div>
+          <label htmlFor="footballFormat" className={labelClassName}>Format meci</label>
+          <select id="footballFormat" value={footballFormat} onChange={(e) => setFootballFormat(e.target.value as FootballFormat)} className={inputClassName}>
+            {FOOTBALL_FORMATS.map((format) => <option key={format.value} value={format.value}>{format.label} ({format.totalPlayers} în total)</option>)}
+          </select>
+          <p className="mt-1 text-xs text-muted-foreground">Locurile pentru participanți se calculează automat.</p>
+        </div>
+      ) : (
+        <div>
+          <label htmlFor="maxParticipants" className={labelClassName}>Număr maxim participanți</label>
+          <input id="maxParticipants" type="number" required min={2} value={maxParticipants} onChange={(e) => setMaxParticipants(e.target.value)} className={inputClassName} />
+        </div>
+      )}
 
       {error && (
         <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">

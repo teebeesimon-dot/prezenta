@@ -1,3 +1,5 @@
+import type { FootballFormat } from "@/lib/types";
+import { getFootballFormat } from "@/lib/football-formats";
 import type { GeneratedTeams, ParticipantEntry } from "@/lib/types";
 
 function shuffle<T>(items: T[]): T[] {
@@ -10,14 +12,18 @@ function shuffle<T>(items: T[]): T[] {
 }
 
 export function generateRandomTeams(
-  confirmedPlayers: ParticipantEntry[]
+  confirmedPlayers: ParticipantEntry[],
+  footballFormat?: FootballFormat
 ): GeneratedTeams {
   const shuffled = shuffle(confirmedPlayers);
-  const splitIndex = Math.ceil(shuffled.length / 2);
+  const format = getFootballFormat(footballFormat);
+  const teams = Array.from({ length: format.teams }, () => [] as ParticipantEntry[]);
+  shuffled.forEach((player, index) => teams[index % format.teams].push(player));
 
   return {
-    teamA: shuffled.slice(0, splitIndex),
-    teamB: shuffled.slice(splitIndex),
+    teamA: teams[0] ?? [],
+    teamB: teams[1] ?? [],
+    teams,
   };
 }
 
@@ -39,12 +45,11 @@ export function mapFirestoreTeams(value: unknown): GeneratedTeams | null {
 
   const teamA = mapPlayers(data.teamA);
   const teamB = mapPlayers(data.teamB);
+  const teams = Array.isArray(data.teams)
+    ? data.teams.map((team) => mapPlayers(team))
+    : undefined;
 
-  if (teamA.length === 0 && teamB.length === 0) return null;
+  if (teamA.length === 0 && teamB.length === 0 && !teams?.some((team) => team.length > 0)) return null;
 
-  return {
-    teamA,
-    teamB,
-    generatedAt: data.generatedAt,
-  };
+  return { teamA, teamB, ...(teams ? { teams } : {}), generatedAt: data.generatedAt };
 }
