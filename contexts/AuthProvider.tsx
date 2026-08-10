@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Safety net: never let the UI hang on an unresolved auth state
     // (e.g. iOS Safari blocking storage). Show the signed-out UI after a delay.
-    const timeout = setTimeout(() => setLoading(false), 6000);
+    const timeout = setTimeout(() => setLoading(false), 2500);
 
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
       // Resolve the loading state immediately based on auth, so the UI is
