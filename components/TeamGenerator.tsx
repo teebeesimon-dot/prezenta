@@ -12,12 +12,14 @@ import {
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
 import { computeGoingLists, parseTimestamp } from "@/lib/going-list";
+import { getDefaultFootballFormat } from "@/lib/football-formats";
 import { generateRandomTeams } from "@/lib/teams";
 import type { GeneratedTeams, ParticipantEntry } from "@/lib/types";
 
 interface TeamGeneratorProps {
   eventId: string;
   maxParticipants: number;
+  footballFormat?: string;
   teams: GeneratedTeams | null | undefined;
   isOwner: boolean;
 }
@@ -96,6 +98,7 @@ function getParticipantPhoto(data: Record<string, unknown>): string | null {
 export default function TeamGenerator({
   eventId,
   maxParticipants,
+  footballFormat,
   teams,
   isOwner,
 }: TeamGeneratorProps) {
@@ -151,12 +154,13 @@ export default function TeamGenerator({
     setGenerating(true);
 
     try {
-      const generated = generateRandomTeams(confirmed);
+      const generated = generateRandomTeams(confirmed, (footballFormat ?? getDefaultFootballFormat(maxParticipants)) as "2x6" | "3x5" | "3x6");
 
       await updateDoc(doc(db, "events", eventId), {
         teams: {
           teamA: generated.teamA,
           teamB: generated.teamB,
+          teams: generated.teams,
           generatedAt: Timestamp.now(),
         },
       });
@@ -167,8 +171,8 @@ export default function TeamGenerator({
     }
   }
 
-  const hasTeams =
-    teams && (teams.teamA.length > 0 || teams.teamB.length > 0);
+  const displayTeams = teams?.teams?.length ? teams.teams : [teams?.teamA ?? [], teams?.teamB ?? []];
+  const hasTeams = displayTeams.some((team) => team.length > 0);
 
   if (!isOwner && !hasTeams) {
     return null;
@@ -207,17 +211,15 @@ export default function TeamGenerator({
       )}
 
       {hasTeams ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <TeamCard
-            title="Echipa A"
-            players={teams.teamA}
-            className="border-primary/30 bg-primary/5"
-          />
-          <TeamCard
-            title="Echipa B"
-            players={teams.teamB}
-            className="border-accent/40 bg-accent/10"
-          />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {displayTeams.map((players, index) => (
+            <TeamCard
+              key={index}
+              title={`Echipa ${String.fromCharCode(65 + index)}`}
+              players={players}
+              className={index % 2 === 0 ? "border-primary/30 bg-primary/5" : "border-accent/40 bg-accent/10"}
+            />
+          ))}
         </div>
       ) : (
         isOwner && (

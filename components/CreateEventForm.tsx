@@ -28,6 +28,7 @@ import {
 } from "@/lib/registration";
 import { createSeries } from "@/lib/series";
 import { monthLabel } from "@/lib/subscriptions";
+import { FOOTBALL_FORMATS, type FootballFormat } from "@/lib/football-formats";
 import type { PaymentModel, Sport } from "@/lib/types";
 
 const PAYMENT_OPTIONS: {
@@ -60,7 +61,11 @@ export default function CreateEventForm() {
   );
   const [pricePerHour, setPricePerHour] = useState("");
   const [location, setLocation] = useState<EventLocation | null>(null);
-  const [maxParticipants, setMaxParticipants] = useState("");
+  const [footballFormat, setFootballFormat] = useState<FootballFormat>("2x6");
+  const [manualMaxParticipants, setManualMaxParticipants] = useState("");
+  const maxParticipants = sport === "football"
+    ? String(FOOTBALL_FORMATS.find((format) => format.value === footballFormat)?.totalPlayers ?? 12)
+    : manualMaxParticipants;
   const [frequency, setFrequency] = useState<RecurrenceFrequency>("weekly");
   const [endDate, setEndDate] = useState("");
   const [groupSize, setGroupSize] = useState("");
@@ -138,6 +143,7 @@ export default function CreateEventForm() {
         time,
         durationMinutes,
         maxParticipants: Number(maxParticipants),
+        footballFormat,
         location,
         ownerId: user.uid,
         frequency,
@@ -326,21 +332,29 @@ export default function CreateEventForm() {
 
       <LocationAutocomplete value={location} onChange={setLocation} required />
 
-      <div>
-        <label htmlFor="maxParticipants" className={labelClassName}>
-          Număr maxim participanți
-        </label>
-        <input
-          id="maxParticipants"
-          type="number"
-          required
-          min={2}
-          value={maxParticipants}
-          onChange={(e) => setMaxParticipants(e.target.value)}
-          className={inputClassName}
-          placeholder="10"
-        />
-      </div>
+      {sport === "football" ? (
+        <div>
+          <label htmlFor="footballFormat" className={labelClassName}>
+            Format meci
+          </label>
+          <select
+            id="footballFormat"
+            value={footballFormat}
+            onChange={(e) => setFootballFormat(e.target.value as FootballFormat)}
+            className={inputClassName}
+          >
+            {FOOTBALL_FORMATS.map((format) => (
+              <option key={format.value} value={format.value}>{format.label} ({format.totalPlayers} în total)</option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-muted-foreground">Locurile pentru participanți se calculează automat.</p>
+        </div>
+      ) : (
+        <div>
+          <label htmlFor="maxParticipants" className={labelClassName}>Număr maxim participanți</label>
+          <input id="maxParticipants" type="number" required min={2} value={manualMaxParticipants} onChange={(e) => setManualMaxParticipants(e.target.value)} className={inputClassName} placeholder="10" />
+        </div>
+      )}
 
       <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">

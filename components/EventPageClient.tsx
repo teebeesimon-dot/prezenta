@@ -262,6 +262,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
       <TeamGenerator
         eventId={event.id}
         maxParticipants={event.maxParticipants}
+        footballFormat={event.footballFormat}
         teams={event.teams}
         isOwner={canManage}
       />

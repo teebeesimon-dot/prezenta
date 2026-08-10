@@ -2,6 +2,8 @@ export type AttendanceStatus = "vin" | "poate" | "nu_vin";
 
 export type Sport = "football" | "tennis" | "padel";
 
+export type FootballFormat = "2x6" | "3x5" | "3x6";
+
 export type UserRole = "super_admin" | "organizer" | "user";
 
 export interface UserProfile {
@@ -56,6 +58,7 @@ export interface Participant {
 export interface GeneratedTeams {
   teamA: ParticipantEntry[];
   teamB: ParticipantEntry[];
+  teams?: ParticipantEntry[][];
   generatedAt?: unknown;
 }
 
@@ -76,6 +79,7 @@ export interface Event {
   latitude?: number;
   longitude?: number;
   maxParticipants: number;
+  footballFormat?: FootballFormat;
   ownerId: string;
   seriesId?: string;
   seriesIndex?: number;
@@ -106,6 +110,7 @@ export interface Series {
   time: string;
   durationMinutes?: number;
   maxParticipants: number;
+  footballFormat?: FootballFormat;
   location: string;
   placeId?: string;
   locationName?: string;

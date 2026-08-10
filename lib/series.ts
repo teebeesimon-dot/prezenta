@@ -36,6 +36,7 @@ export function mapFirestoreSeries(
     time: (data.time as string) ?? "",
     durationMinutes: (data.durationMinutes as number) ?? undefined,
     maxParticipants: (data.maxParticipants as number) ?? 0,
+    footballFormat: data.footballFormat as Series["footballFormat"],
     location:
       (data.locationName as string) ?? (data.location as string) ?? "",
     placeId: (data.placeId as string) ?? undefined,
@@ -67,6 +68,7 @@ interface CreateSeriesInput {
   time: string;
   durationMinutes: number;
   maxParticipants: number;
+  footballFormat?: Series["footballFormat"];
   location: EventLocation;
   ownerId: string;
   frequency: RecurrenceFrequency;
@@ -91,6 +93,7 @@ function buildOccurrenceData(
     maxParticipants: number;
     ownerId: string;
     paymentModel: PaymentModel;
+    footballFormat?: Series["footballFormat"];
     pricePerHour?: number;
     registrationLeadValue?: number;
     registrationLeadUnit?: "hours" | "days";
@@ -106,6 +109,7 @@ function buildOccurrenceData(
     time: series.time,
     durationMinutes: series.durationMinutes,
     maxParticipants: series.maxParticipants,
+    ...(series.footballFormat ? { footballFormat: series.footballFormat } : {}),
     ownerId: series.ownerId,
     paymentModel: series.paymentModel,
     // Price snapshot at materialization time (history keeps its own price).
@@ -156,6 +160,7 @@ export async function createSeries(input: CreateSeriesInput): Promise<string> {
         maxParticipants: input.maxParticipants,
         ownerId: input.ownerId,
         paymentModel: input.paymentModel,
+        footballFormat: input.footballFormat,
         pricePerHour: input.pricePerHour,
         registrationLeadValue: input.registrationLeadValue,
         registrationLeadUnit: input.registrationLeadUnit,
@@ -173,6 +178,7 @@ export async function createSeries(input: CreateSeriesInput): Promise<string> {
     time: input.time,
     durationMinutes: input.durationMinutes,
     maxParticipants: input.maxParticipants,
+    ...(input.footballFormat ? { footballFormat: input.footballFormat } : {}),
     ownerId: input.ownerId,
     frequency: input.frequency,
     startDate: input.startDate,
@@ -248,6 +254,7 @@ export async function ensureCurrentOccurrence(
         maxParticipants: series.maxParticipants,
         ownerId: series.ownerId,
         paymentModel: series.paymentModel,
+        footballFormat: series.footballFormat,
         pricePerHour: series.pricePerHour,
         registrationLeadValue: series.registrationLeadValue,
         registrationLeadUnit: series.registrationLeadUnit,
