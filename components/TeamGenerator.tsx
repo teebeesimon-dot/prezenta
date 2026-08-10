@@ -53,10 +53,20 @@ function TeamCard({
   title,
   players,
   className,
+  editable,
+  teamNames,
+  teamIndex,
+  onMovePlayer,
+  movingPlayerId,
 }: {
   title: string;
   players: ParticipantEntry[];
   className: string;
+  editable?: boolean;
+  teamNames?: string[];
+  teamIndex?: number;
+  onMovePlayer?: (userId: string, fromIndex: number, toIndex: number) => void;
+  movingPlayerId?: string | null;
 }) {
   return (
     <div className={`rounded-2xl border p-4 ${className}`}>
@@ -76,9 +86,26 @@ function TeamCard({
                 name={player.name}
                 photoURL={player.photoURL}
               />
-              <span className="text-sm font-medium text-foreground">
+              <span className="flex-1 truncate text-sm font-medium text-foreground">
                 {player.name}
               </span>
+              {editable && teamNames && typeof teamIndex === "number" && onMovePlayer && (
+                <select
+                  aria-label={`Mută pe ${player.name} în altă echipă`}
+                  value={teamIndex}
+                  disabled={movingPlayerId === player.userId}
+                  onChange={(event) =>
+                    onMovePlayer(player.userId, teamIndex, Number(event.target.value))
+                  }
+                  className="shrink-0 rounded-lg border border-border bg-background px-2 py-1 text-xs font-medium text-foreground disabled:opacity-50"
+                >
+                  {teamNames.map((name, index) => (
+                    <option key={name} value={index}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </li>
           ))}
         </ul>
@@ -105,6 +132,7 @@ export default function TeamGenerator({
   const [confirmed, setConfirmed] = useState<ParticipantEntry[]>([]);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [movingPlayerId, setMovingPlayerId] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(
@@ -176,6 +204,37 @@ export default function TeamGenerator({
 
   const displayTeams = teams?.teams?.length ? teams.teams : [teams?.teamA ?? [], teams?.teamB ?? []];
   const hasTeams = displayTeams.some((team) => team.length > 0);
+  const teamNames = displayTeams.map((_, index) => `Echipa ${String.fromCharCode(65 + index)}`);
+
+  async function handleMovePlayer(userId: string, fromIndex: number, toIndex: number) {
+    if (!isOwner || fromIndex === toIndex) return;
+
+    const nextTeams = displayTeams.map((players) => [...players]);
+    const fromTeam = nextTeams[fromIndex];
+    const playerIndex = fromTeam.findIndex((player) => player.userId === userId);
+    if (playerIndex === -1) return;
+
+    const [player] = fromTeam.splice(playerIndex, 1);
+    nextTeams[toIndex].push(player);
+
+    setMovingPlayerId(userId);
+    setError("");
+
+    try {
+      await updateDoc(doc(db, "events", eventId), {
+        teams: {
+          teamA: nextTeams[0] ?? [],
+          teamB: nextTeams[1] ?? [],
+          teams: nextTeams.map((players) => ({ players })),
+          generatedAt: Timestamp.now(),
+        },
+      });
+    } catch {
+      setError("Nu am putut muta jucătorul. Încearcă din nou.");
+    } finally {
+      setMovingPlayerId(null);
+    }
+  }
 
   if (!isOwner && !hasTeams) {
     return null;
@@ -214,16 +273,28 @@ export default function TeamGenerator({
       )}
 
       {hasTeams ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {displayTeams.map((players, index) => (
-            <TeamCard
-              key={index}
-              title={`Echipa ${String.fromCharCode(65 + index)}`}
-              players={players}
-              className={index % 2 === 0 ? "border-primary/30 bg-primary/5" : "border-accent/40 bg-accent/10"}
-            />
-          ))}
-        </div>
+        <>
+          {isOwner && (
+            <p className="mb-4 text-sm text-muted-foreground">
+              Poți muta manual jucătorii între echipe folosind meniul de lângă fiecare nume.
+            </p>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {displayTeams.map((players, index) => (
+              <TeamCard
+                key={index}
+                title={teamNames[index]}
+                players={players}
+                className={index % 2 === 0 ? "border-primary/30 bg-primary/5" : "border-accent/40 bg-accent/10"}
+                editable={isOwner}
+                teamNames={teamNames}
+                teamIndex={index}
+                onMovePlayer={handleMovePlayer}
+                movingPlayerId={movingPlayerId}
+              />
+            ))}
+          </div>
+        </>
       ) : (
         isOwner && (
           <div className="rounded-2xl border border-dashed border-border bg-muted p-8 text-center">
