@@ -160,7 +160,10 @@ export default function TeamGenerator({
         teams: {
           teamA: generated.teamA,
           teamB: generated.teamB,
-          teams: generated.teams,
+          // Firestore does not support arrays nested directly inside arrays,
+          // so each team is wrapped in an object ({ players: [...] }) instead
+          // of being a bare array — this keeps it as an array of maps.
+          teams: (generated.teams ?? []).map((players) => ({ players })),
           generatedAt: Timestamp.now(),
         },
       });

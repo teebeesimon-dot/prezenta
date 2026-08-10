@@ -45,8 +45,15 @@ export function mapFirestoreTeams(value: unknown): GeneratedTeams | null {
 
   const teamA = mapPlayers(data.teamA);
   const teamB = mapPlayers(data.teamB);
+  // Each team is stored as { players: [...] } (array of maps) rather than a
+  // bare array, since Firestore disallows arrays nested directly in arrays.
+  // Older documents may still have bare arrays, so support both shapes.
   const teams = Array.isArray(data.teams)
-    ? data.teams.map((team) => mapPlayers(team))
+    ? data.teams.map((team) =>
+        Array.isArray(team)
+          ? mapPlayers(team)
+          : mapPlayers((team as Record<string, unknown>)?.players)
+      )
     : undefined;
 
   if (teamA.length === 0 && teamB.length === 0 && !teams?.some((team) => team.length > 0)) return null;
