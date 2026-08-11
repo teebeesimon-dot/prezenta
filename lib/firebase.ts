@@ -3,6 +3,7 @@ import {
   browserLocalPersistence,
   browserPopupRedirectResolver,
   getAuth,
+  indexedDBLocalPersistence,
   initializeAuth,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -26,14 +27,22 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 // we fall back to plain `getAuth` to avoid Firebase internal assertions.
 function createAuth() {
   if (typeof window === "undefined") {
-    return getAuth(app);
+    // On the server we never need a working auth instance (auth state is
+    // resolved client-side). Wrap in try/catch so a missing/invalid API key
+    // can't crash server rendering with a hard 500 that then gets cached by
+    // preview frames. The client path below still initializes auth properly.
+    try {
+      return getAuth(app);
+    } catch {
+      return null as unknown as ReturnType<typeof getAuth>;
+    }
   }
   try {
     return initializeAuth(app, {
-      // IndexedDB can stall indefinitely in embedded previews, private mode,
-      // and some Safari contexts. Local storage is more reliable for this app
-      // and still keeps the session across normal page reloads.
-      persistence: browserLocalPersistence,
+      // Try IndexedDB first so existing sessions (saved there previously)
+      // keep working, and fall back to localStorage if IndexedDB stalls or
+      // is unavailable (embedded previews, private mode, some Safari contexts).
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence],
       popupRedirectResolver: browserPopupRedirectResolver,
     });
   } catch {

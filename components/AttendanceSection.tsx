@@ -24,6 +24,11 @@ import {
   isPaid,
   setPaymentStatus,
 } from "@/lib/payments";
+import {
+  computeRegistrationOpensAt,
+  formatCountdown,
+  formatRegistrationOpensAt,
+} from "@/lib/registration";
 import { saveResponse } from "@/lib/responses";
 import {
   monthKeyFromDate,
@@ -46,14 +51,18 @@ interface AttendanceSectionProps {
   durationMinutes?: number;
   ownerId?: string;
   eventDate?: string;
+  eventTime?: string;
   canManage?: boolean;
   paymentModel?: PaymentModel;
+  registrationLeadValue?: number;
+  registrationLeadUnit?: "hours" | "days";
+  registrationOpenTime?: string;
 }
 
 const MAYBE_CONFIG = {
   status: "poate" as const,
   label: "Poate",
-  groupTitle: "Maybe",
+  groupTitle: "Poate",
   buttonClass: "bg-accent hover:bg-accent/90 text-accent-foreground",
   listClass:
     "border-accent/30 bg-accent/10 dark:border-accent/30 dark:bg-accent/10",
@@ -62,7 +71,7 @@ const MAYBE_CONFIG = {
 const NOT_GOING_CONFIG = {
   status: "nu_vin" as const,
   label: "Nu vin",
-  groupTitle: "Not Going",
+  groupTitle: "Nu vin",
   buttonClass:
     "bg-muted-foreground/80 hover:bg-muted-foreground text-background",
   listClass: "border-border bg-muted",
@@ -72,7 +81,7 @@ const VIN_BUTTON_CLASS =
   "bg-primary hover:bg-primary-hover text-primary-foreground";
 
 function getParticipantName(data: Record<string, unknown>): string {
-  return (data.userName as string) || (data.name as string) || "Unknown";
+  return (data.userName as string) || (data.name as string) || "Necunoscut";
 }
 
 function getParticipantPhoto(data: Record<string, unknown>): string | null {
@@ -170,7 +179,7 @@ function SimpleParticipantList({
         {title} ({count})
       </h3>
       {participants.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">No one yet.</p>
+        <p className="mt-3 text-sm text-muted-foreground">Nimeni încă.</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {participants.map((participant) => (
@@ -200,8 +209,12 @@ export default function AttendanceSection({
   durationMinutes,
   ownerId,
   eventDate,
+  eventTime,
   canManage = false,
   paymentModel = "per_game",
+  registrationLeadValue,
+  registrationLeadUnit,
+  registrationOpenTime,
 }: AttendanceSectionProps) {
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const [confirmed, setConfirmed] = useState<RankedParticipantEntry[]>([]);
@@ -213,6 +226,24 @@ export default function AttendanceSection({
   const [submitting, setSubmitting] = useState<AttendanceStatus | null>(null);
   const [payments, setPayments] = useState<Record<string, "paid" | "unpaid">>({});
   const [subscriptions, setSubscriptions] = useState<SubscriptionMap>({});
+  const [now, setNow] = useState(() => Date.now());
+
+  const registrationOpensAt = computeRegistrationOpensAt({
+    date: eventDate ?? "",
+    time: eventTime ?? "",
+    registrationLeadValue,
+    registrationLeadUnit,
+    registrationOpenTime,
+  });
+  const registrationOpen =
+    !registrationOpensAt || now >= registrationOpensAt.getTime();
+
+  // While registration is still locked, tick once a second for the countdown.
+  useEffect(() => {
+    if (registrationOpen) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [registrationOpen]);
 
   const monthKey = eventDate ? monthKeyFromDate(eventDate) : "";
 
@@ -333,6 +364,7 @@ export default function AttendanceSection({
 
   async function handleResponse(status: AttendanceStatus) {
     if (!user) return;
+    if (!registrationOpen) return;
 
     setSubmitting(status);
 
@@ -365,14 +397,14 @@ export default function AttendanceSection({
         <h2 className="mb-4 text-xl font-bold tracking-tight text-foreground">Prezență</h2>
         <div className="rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
           <p className="text-muted-foreground">
-            Sign in with Google to confirm your attendance.
+            Conectează-te cu Google pentru a-ți confirma prezența.
           </p>
           <button
             type="button"
             onClick={signInWithGoogle}
             className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover"
           >
-            Sign in with Google
+            Conectează-te cu Google
           </button>
         </div>
       </section>
@@ -394,23 +426,37 @@ export default function AttendanceSection({
             {currentStatus === "vin" && userPosition && (
               <p className="text-sm text-muted-foreground">
                 {userPosition.isWaitlisted
-                  ? `Waiting list: ${userPosition.positionLabel}`
-                  : `Confirmed: ${userPosition.positionLabel}`}
+                  ? `Listă de așteptare: ${userPosition.positionLabel}`
+                  : `Confirmat: ${userPosition.positionLabel}`}
               </p>
             )}
             {currentStatus && currentStatus !== "vin" && (
               <p className="text-sm text-muted-foreground">
-                Your response:{" "}
-                {currentStatus === "poate" ? "Maybe" : "Not Going"}
+                Răspunsul tău:{" "}
+                {currentStatus === "poate" ? "Poate" : "Nu vin"}
               </p>
             )}
           </div>
         </div>
 
+        {!registrationOpen && registrationOpensAt && (
+          <div className="mb-4 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3">
+            <p className="text-sm font-semibold text-foreground">
+              Înscrierile nu sunt încă deschise
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Se deschid {formatRegistrationOpensAt(registrationOpensAt)}.
+            </p>
+            <p className="mt-2 text-2xl font-extrabold tabular-nums tracking-tight text-foreground">
+              {formatCountdown(registrationOpensAt.getTime() - now)}
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <button
             type="button"
-            disabled={submitting !== null}
+            disabled={submitting !== null || !registrationOpen}
             onClick={() => handleResponse("vin")}
             className={`rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
               currentStatus === "vin"
@@ -422,7 +468,7 @@ export default function AttendanceSection({
           </button>
           <button
             type="button"
-            disabled={submitting !== null}
+            disabled={submitting !== null || !registrationOpen}
             onClick={() => handleResponse("poate")}
             className={`rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
               currentStatus === "poate"
@@ -434,7 +480,7 @@ export default function AttendanceSection({
           </button>
           <button
             type="button"
-            disabled={submitting !== null}
+            disabled={submitting !== null || !registrationOpen}
             onClick={() => handleResponse("nu_vin")}
             className={`rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
               currentStatus === "nu_vin"
@@ -613,16 +659,16 @@ export default function AttendanceSection({
 
       <div className="mt-6 flex flex-col gap-4">
         <RankedParticipantList
-          title={`Going (${confirmed.length}/${maxParticipants})`}
+          title={`Confirmați (${confirmed.length}/${maxParticipants})`}
           participants={confirmed}
           className="border-primary/30 bg-primary/5"
-          emptyMessage="No confirmed players yet."
+          emptyMessage="Niciun jucător confirmat încă."
         />
         <RankedParticipantList
-          title={`Waiting List (${waitlist.length})`}
+          title={`Listă de așteptare (${waitlist.length})`}
           participants={waitlist}
           className="border-accent/30 bg-accent/5"
-          emptyMessage="No one on the waiting list."
+          emptyMessage="Nimeni pe lista de așteptare."
         />
         <SimpleParticipantList
           title={MAYBE_CONFIG.groupTitle}

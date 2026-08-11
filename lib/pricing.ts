@@ -58,24 +58,29 @@ export function computePerPlayer(
 }
 
 /**
- * Monthly subscription cost. Product rule: price-per-hour × the number of
- * occurrences that fall in the upcoming month, split across a fixed group size
- * (every member pays, regardless of who actually attends each game).
+ * Monthly subscription cost. Product rule: cost per session (price-per-hour ×
+ * the game's duration in hours) × the number of occurrences that fall in the
+ * upcoming month, split across a fixed group size (every member pays,
+ * regardless of who actually attends each game).
  */
 export function computeMonthlySubscription(params: {
   pricePerHour?: number;
+  durationMinutes?: number;
   occurrencesInMonth?: number;
   groupSize?: number;
-}): { monthlyTotal: number; perPlayer: number } {
-  const price = params.pricePerHour ?? 0;
+}): { sessionCost: number; monthlyTotal: number; perPlayer: number } {
   const occurrences = params.occurrencesInMonth ?? 0;
   const group = params.groupSize ?? 0;
-  if (price <= 0 || occurrences <= 0) {
-    return { monthlyTotal: 0, perPlayer: 0 };
+  const sessionCost = computeTotalCost(
+    params.pricePerHour,
+    params.durationMinutes
+  );
+  if (sessionCost <= 0 || occurrences <= 0) {
+    return { sessionCost, monthlyTotal: 0, perPlayer: 0 };
   }
-  const monthlyTotal = price * occurrences;
+  const monthlyTotal = sessionCost * occurrences;
   const perPlayer = group > 0 ? monthlyTotal / group : 0;
-  return { monthlyTotal, perPlayer };
+  return { sessionCost, monthlyTotal, perPlayer };
 }
 
 // Formats a RON amount, dropping trailing ".00" for whole numbers.

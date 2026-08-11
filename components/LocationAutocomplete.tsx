@@ -115,11 +115,11 @@ export default function LocationAutocomplete({
         autoComplete="off"
       />
       {!isReady && !loadError && (
-        <p className="mt-1.5 text-xs text-muted-foreground">Loading location search...</p>
+        <p className="mt-1.5 text-xs text-muted-foreground">Se încarcă căutarea locațiilor...</p>
       )}
       {loadError && (
         <p className="mt-1.5 text-xs text-destructive">
-          Google Maps unavailable. Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
+          Google Maps indisponibil. Adaugă NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
         </p>
       )}
       {isReady && !value && inputValue.trim() && (

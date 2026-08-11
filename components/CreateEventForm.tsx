@@ -12,6 +12,7 @@ import {
   computeTotalCost,
   DEFAULT_DURATION_MINUTES,
   DURATION_OPTIONS,
+  formatDuration,
   formatLei,
   formatTimeRange,
 } from "@/lib/pricing";
@@ -21,6 +22,10 @@ import {
   RECURRENCE_OPTIONS,
   type RecurrenceFrequency,
 } from "@/lib/recurrence";
+import {
+  describeRegistrationLead,
+  type RegistrationLeadUnit,
+} from "@/lib/registration";
 import { createSeries } from "@/lib/series";
 import { monthLabel } from "@/lib/subscriptions";
 import { FOOTBALL_FORMATS, type FootballFormat } from "@/lib/football-formats";
@@ -66,6 +71,11 @@ export default function CreateEventForm() {
   const [groupSize, setGroupSize] = useState("");
   const [monthlyPrice, setMonthlyPrice] = useState("");
   const [monthlyEdited, setMonthlyEdited] = useState(false);
+  const [registrationEnabled, setRegistrationEnabled] = useState(false);
+  const [registrationLeadValue, setRegistrationLeadValue] = useState("2");
+  const [registrationLeadUnit, setRegistrationLeadUnit] =
+    useState<RegistrationLeadUnit>("days");
+  const [registrationOpenTime, setRegistrationOpenTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -81,8 +91,9 @@ export default function CreateEventForm() {
       : 0;
   // Divisor: the fixed group size; falls back to the max participants value.
   const groupSizeValue = Number(groupSize) || Number(maxParticipants) || 0;
-  const { monthlyTotal, perPlayer } = computeMonthlySubscription({
+  const { sessionCost, monthlyTotal, perPlayer } = computeMonthlySubscription({
     pricePerHour: priceValue,
+    durationMinutes,
     occurrencesInMonth,
     groupSize: groupSizeValue,
   });
@@ -145,6 +156,15 @@ export default function CreateEventForm() {
           : {}),
         ...(paymentModel === "monthly" && groupSizeValue > 0
           ? { groupSize: groupSizeValue }
+          : {}),
+        ...(registrationEnabled && Number(registrationLeadValue) > 0
+          ? {
+              registrationLeadValue: Number(registrationLeadValue),
+              registrationLeadUnit,
+              ...(registrationLeadUnit === "days" && registrationOpenTime
+                ? { registrationOpenTime }
+                : {}),
+            }
           : {}),
       });
       router.push(`/event/${eventId}`);
@@ -284,7 +304,7 @@ export default function CreateEventForm() {
             id="pricePerHour"
             type="number"
             min={0}
-            step={10}
+            step={1}
             value={pricePerHour}
             onChange={(e) => setPricePerHour(e.target.value)}
             className={inputClassName}
@@ -415,16 +435,23 @@ export default function CreateEventForm() {
               </p>
             </div>
 
-            {priceValue > 0 && occurrencesInMonth > 0 && groupSizeValue > 0 && (
+            {sessionCost > 0 && occurrencesInMonth > 0 && groupSizeValue > 0 && (
               <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
                 <p className="text-muted-foreground">
+                  Cost/ședință: {formatLei(priceValue)}/oră ×{" "}
+                  {formatDuration(durationMinutes)} ={" "}
+                  <span className="font-semibold text-foreground">
+                    {formatLei(sessionCost)}
+                  </span>
+                </p>
+                <p className="mt-1 text-muted-foreground">
                   Luna{" "}
                   <span className="font-medium text-foreground">
                     {monthLabel(monthKey)}
                   </span>
                   : {occurrencesInMonth}{" "}
                   {occurrencesInMonth === 1 ? "apariție" : "apariții"} ×{" "}
-                  {formatLei(priceValue)}/oră ={" "}
+                  {formatLei(sessionCost)} ={" "}
                   <span className="font-semibold text-foreground">
                     {formatLei(monthlyTotal)}
                   </span>
@@ -443,10 +470,10 @@ export default function CreateEventForm() {
                 Cost abonament lunar / membru (lei)
               </label>
               <input
-                id="monthlyPrice"
-                type="number"
-                min={0}
-                step={10}
+            id="monthlyPrice"
+            type="number"
+            min={0}
+            step="any"
                 value={monthlyFieldValue}
                 onChange={(e) => {
                   setMonthlyEdited(true);
@@ -459,6 +486,97 @@ export default function CreateEventForm() {
                 {monthlyEdited
                   ? "Sumă introdusă manual."
                   : "Calculat automat — îl poți modifica. Se poate ajusta ulterior din pagina seriei."}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-border bg-muted/30 p-4 space-y-4">
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={registrationEnabled}
+            onChange={(e) => setRegistrationEnabled(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-primary"
+          />
+          <span>
+            <span className="block text-sm font-semibold text-foreground">
+              Deschidere programată a înscrierilor
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              Înscrierile (Vin / Poate / Nu vin) se blochează până la momentul
+              stabilit, calculat automat înainte de fiecare apariție din serie.
+            </span>
+          </span>
+        </label>
+
+        {registrationEnabled && (
+          <div className="space-y-4 border-t border-border pt-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="regLeadValue" className={labelClassName}>
+                  Se deschid cu
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="regLeadValue"
+                    type="number"
+                    min={1}
+                    value={registrationLeadValue}
+                    onChange={(e) => setRegistrationLeadValue(e.target.value)}
+                    className={inputClassName}
+                    placeholder="2"
+                  />
+                  <select
+                    aria-label="Unitate"
+                    value={registrationLeadUnit}
+                    onChange={(e) =>
+                      setRegistrationLeadUnit(
+                        e.target.value as RegistrationLeadUnit
+                      )
+                    }
+                    className={inputClassName}
+                  >
+                    <option value="hours">ore înainte</option>
+                    <option value="days">zile înainte</option>
+                  </select>
+                </div>
+              </div>
+
+              {registrationLeadUnit === "days" && (
+                <div>
+                  <label htmlFor="regOpenTime" className={labelClassName}>
+                    La ora (opțional)
+                  </label>
+                  <input
+                    id="regOpenTime"
+                    type="time"
+                    step={300}
+                    value={registrationOpenTime}
+                    onChange={(e) => setRegistrationOpenTime(e.target.value)}
+                    className={inputClassName}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Gol = se folosește ora de început a jocului.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+              <p className="text-muted-foreground">
+                Înscrieri:{" "}
+                <span className="font-semibold text-foreground">
+                  {describeRegistrationLead(
+                    Number(registrationLeadValue),
+                    registrationLeadUnit,
+                    registrationLeadUnit === "days"
+                      ? registrationOpenTime
+                      : undefined
+                  )}
+                </span>
+                . Aceeași oră pentru fiecare apariție.
               </p>
             </div>
           </div>

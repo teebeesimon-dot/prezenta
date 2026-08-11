@@ -67,8 +67,8 @@ service cloud.firestore {
         request.auth.uid == userId || canReadUserProfiles()
       );
 
-      // Admin panel: super_admin lists all users
-      allow list: if isSuperAdmin();
+      // Admin panel + member picker: super_admin / organizer list users
+      allow list: if canReadUserProfiles();
 
       // First login: create own profile with server-validated initial role
       allow create: if isAuthenticated()
@@ -113,7 +113,7 @@ service cloud.firestore {
       allow get: if isAuthenticated();
 
       allow list: if isAuthenticated()
-        && resource.data.ownerId == request.auth.uid;
+        && (resource.data.ownerId == request.auth.uid || isSuperAdmin());
 
       allow create: if canCreateEvents()
         && request.resource.data.ownerId == request.auth.uid
@@ -140,7 +140,7 @@ service cloud.firestore {
       allow get: if isAuthenticated();
 
       allow list: if isAuthenticated()
-        && resource.data.ownerId == request.auth.uid;
+        && (resource.data.ownerId == request.auth.uid || isSuperAdmin());
 
       allow create: if canCreateEvents()
         && request.resource.data.ownerId == request.auth.uid
@@ -212,6 +212,59 @@ service cloud.firestore {
       allow delete: if canCreateEvents();
 
       allow update: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // members/{memberId}  — document id: {groupId}_{userId}
+    // Persistent roster for a series (or standalone event). Anyone signed in
+    // with the link can join themselves; the group owner / super admin can
+    // remove anyone; members can remove themselves.
+    // -------------------------------------------------------------------------
+
+    match /members/{memberId} {
+      function isGroupOwner() {
+        return isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      }
+
+      function validMemberId() {
+        return memberId ==
+          request.resource.data.groupId + '_' + request.resource.data.userId;
+      }
+
+      function isJoiningSelf() {
+        return isAuthenticated()
+          && request.resource.data.userId == request.auth.uid
+          && validMemberId();
+      }
+
+      // Group owner / super admin may add any existing user to the group.
+      function isOwnerAddingMember() {
+        return validMemberId() && (
+          request.resource.data.ownerId == request.auth.uid || isSuperAdmin()
+        );
+      }
+
+      allow get, list: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+        && (isJoiningSelf() || isOwnerAddingMember())
+        && request.resource.data.keys().hasAll([
+          'groupId', 'groupType', 'ownerId', 'userId', 'joinedAt'
+        ]);
+
+      // Allow self to refresh own name/photo; group owner may not need updates.
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.groupId == resource.data.groupId
+        && request.resource.data.ownerId == resource.data.ownerId;
+
+      // Self-leave, group owner removal, or super admin.
+      allow delete: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid
+        || isGroupOwner()
+        || isSuperAdmin()
+      );
     }
 
     // -------------------------------------------------------------------------

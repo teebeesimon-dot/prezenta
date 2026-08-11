@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { ROLE_LABELS } from "@/lib/roles";
 import { LogoMark } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 function useIsEmbeddedInIframe() {
   const [isEmbedded, setIsEmbedded] = useState(false);
@@ -22,7 +23,33 @@ function useIsEmbeddedInIframe() {
 export default function AuthButton() {
   const { user, profile, loading, authError, isSuperAdmin, signInWithGoogle, signOutUser } =
     useAuth();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const isEmbedded = useIsEmbeddedInIframe();
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: MouseEvent | TouchEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  if (loading && !user && !isEmbedded) {
+    return <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />;
+  }
 
   if (!user && isEmbedded) {
     return (
@@ -42,69 +69,121 @@ export default function AuthButton() {
     );
   }
 
-  if (loading && !user) {
-    return (
-      <button
-        type="button"
-        onClick={signInWithGoogle}
-        className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground transition hover:bg-muted"
-      >
-        <GoogleIcon />
-        Sign in with Google
-      </button>
-    );
-  }
-
   if (!user) {
     return (
       <div className="flex flex-col items-end gap-2">
         <button
           type="button"
           onClick={signInWithGoogle}
-          className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground transition hover:bg-muted"
+          className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-sm font-semibold text-card-foreground transition hover:bg-muted sm:px-4"
         >
           <GoogleIcon />
-          Sign in with Google
+          <span className="hidden sm:inline">Conectează-te cu Google</span>
+          <span className="sm:hidden">Conectează-te</span>
         </button>
         {authError && <p className="max-w-xs text-right text-xs text-destructive">{authError}</p>}
       </div>
     );
   }
 
+  const roleLabel = profile ? ROLE_LABELS[profile.role] : null;
+
   return (
-    <div className="flex items-center gap-3">
-      {isSuperAdmin && (
-        <Link
-          href="/admin"
-          className="inline-flex rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/20"
-        >
-          Admin
-        </Link>
-      )}
-      {user.photoURL && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={user.photoURL}
-          alt=""
-          className="h-9 w-9 rounded-full border border-border"
-        />
-      )}
-      <span className="hidden text-sm font-medium text-foreground sm:inline">
-        {user.displayName}
-        {profile && (
-          <span className="ml-2 text-xs text-muted-foreground">
-            ({ROLE_LABELS[profile.role]})
-          </span>
-        )}
-      </span>
+    <div className="relative" ref={menuRef}>
       <button
         type="button"
-        onClick={signOutUser}
-        className="rounded-xl border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        onClick={() => setOpen((value) => !value)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Meniu cont"
+        className="flex items-center gap-2 rounded-full border border-border p-0.5 transition hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
-        Sign out
+        {user.photoURL ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={user.photoURL}
+            alt=""
+            className="h-9 w-9 rounded-full"
+          />
+        ) : (
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+            {(user.displayName ?? "?").charAt(0).toUpperCase()}
+          </span>
+        )}
+        <ChevronIcon className={`mr-1 h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 z-50 mt-2 w-60 origin-top-right overflow-hidden rounded-2xl border border-border bg-card shadow-lg"
+        >
+          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+            {user.photoURL ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={user.photoURL}
+                alt=""
+                className="h-10 w-10 rounded-full"
+              />
+            ) : (
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-base font-semibold text-primary-foreground">
+                {(user.displayName ?? "?").charAt(0).toUpperCase()}
+              </span>
+            )}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {user.displayName ?? "Cont"}
+              </p>
+              {roleLabel && (
+                <p className="truncate text-xs text-muted-foreground">{roleLabel}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="p-1.5">
+            {isSuperAdmin && (
+              <Link
+                href="/admin"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
+              >
+                Admin
+              </Link>
+            )}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                signOutUser();
+              }}
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-foreground transition hover:bg-muted"
+            >
+              Deconectează-te
+            </button>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function ChevronIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
   );
 }
 
@@ -134,15 +213,18 @@ function GoogleIcon() {
 export function AppHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-      <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3.5">
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6 lg:px-8">
         <Link
           href="/"
-          className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight text-foreground"
+          className="flex items-center gap-2.5 text-lg font-semibold tracking-tight text-foreground"
         >
           <LogoMark className="h-9 w-9" />
-          Ne Adunam
+          prezenta
         </Link>
-        <AuthButton />
+        <div className="flex items-center gap-2 sm:gap-3">
+          <ThemeToggle />
+          <AuthButton />
+        </div>
       </div>
     </header>
   );

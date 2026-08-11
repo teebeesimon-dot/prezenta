@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   deleteField,
   doc,
   getDoc,
@@ -53,6 +54,10 @@ export function mapFirestoreSeries(
     groupSize: (data.groupSize as number) ?? undefined,
     currentEventId: (data.currentEventId as string) ?? "",
     currentOccurrenceDate: (data.currentOccurrenceDate as string) ?? "",
+    registrationLeadValue: (data.registrationLeadValue as number) ?? undefined,
+    registrationLeadUnit:
+      (data.registrationLeadUnit as Series["registrationLeadUnit"]) ?? undefined,
+    registrationOpenTime: (data.registrationOpenTime as string) ?? undefined,
     createdAt: data.createdAt,
   };
 }
@@ -73,6 +78,9 @@ interface CreateSeriesInput {
   pricePerHour?: number;
   monthlyPrice?: number;
   groupSize?: number;
+  registrationLeadValue?: number;
+  registrationLeadUnit?: "hours" | "days";
+  registrationOpenTime?: string;
 }
 
 /** Builds the `events` occurrence document payload for a given date. */
@@ -87,6 +95,9 @@ function buildOccurrenceData(
     paymentModel: PaymentModel;
     footballFormat?: Series["footballFormat"];
     pricePerHour?: number;
+    registrationLeadValue?: number;
+    registrationLeadUnit?: "hours" | "days";
+    registrationOpenTime?: string;
   },
   location: ReturnType<typeof toFirestoreLocation>,
   seriesId: string,
@@ -104,6 +115,15 @@ function buildOccurrenceData(
     // Price snapshot at materialization time (history keeps its own price).
     ...(series.paymentModel === "per_game" && series.pricePerHour
       ? { pricePerHour: series.pricePerHour }
+      : {}),
+    ...(series.registrationLeadValue && series.registrationLeadUnit
+      ? {
+          registrationLeadValue: series.registrationLeadValue,
+          registrationLeadUnit: series.registrationLeadUnit,
+          ...(series.registrationLeadUnit === "days" && series.registrationOpenTime
+            ? { registrationOpenTime: series.registrationOpenTime }
+            : {}),
+        }
       : {}),
     date: occurrenceDate,
     occurrenceDate,
@@ -142,6 +162,9 @@ export async function createSeries(input: CreateSeriesInput): Promise<string> {
         paymentModel: input.paymentModel,
         footballFormat: input.footballFormat,
         pricePerHour: input.pricePerHour,
+        registrationLeadValue: input.registrationLeadValue,
+        registrationLeadUnit: input.registrationLeadUnit,
+        registrationOpenTime: input.registrationOpenTime,
       },
       location,
       seriesRef.id,
@@ -165,6 +188,15 @@ export async function createSeries(input: CreateSeriesInput): Promise<string> {
     ...(input.pricePerHour ? { pricePerHour: input.pricePerHour } : {}),
     ...(input.monthlyPrice ? { monthlyPrice: input.monthlyPrice } : {}),
     ...(input.groupSize ? { groupSize: input.groupSize } : {}),
+    ...(input.registrationLeadValue && input.registrationLeadUnit
+      ? {
+          registrationLeadValue: input.registrationLeadValue,
+          registrationLeadUnit: input.registrationLeadUnit,
+          ...(input.registrationLeadUnit === "days" && input.registrationOpenTime
+            ? { registrationOpenTime: input.registrationOpenTime }
+            : {}),
+        }
+      : {}),
     currentEventId: eventRef.id,
     currentOccurrenceDate: firstOccurrence,
     ...location,
@@ -224,6 +256,9 @@ export async function ensureCurrentOccurrence(
         paymentModel: series.paymentModel,
         footballFormat: series.footballFormat,
         pricePerHour: series.pricePerHour,
+        registrationLeadValue: series.registrationLeadValue,
+        registrationLeadUnit: series.registrationLeadUnit,
+        registrationOpenTime: series.registrationOpenTime,
       },
       location,
       series.id,
@@ -331,4 +366,35 @@ export async function reopenSeries(seriesId: string): Promise<void> {
     status: "active",
     endDate: deleteField(),
   });
+}
+
+/**
+ * Permanently deletes a series and every occurrence (event) linked to it.
+ * The owner is allowed to delete all these docs (ownerId matches). Attendance
+ * responses are intentionally left as harmless orphans (rules only let each
+ * user delete their own response). Batched in chunks to stay under the 500-op
+ * limit.
+ */
+export async function deleteSeriesCompletely(
+  seriesId: string,
+  ownerId: string
+): Promise<void> {
+  const occurrences = await getDocs(
+    query(
+      collection(db, "events"),
+      where("ownerId", "==", ownerId),
+      where("seriesId", "==", seriesId)
+    )
+  );
+
+  const refs = occurrences.docs.map((d) => d.ref);
+  // Leave room for the series doc itself in the final batch.
+  const CHUNK = 400;
+  for (let i = 0; i < refs.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    refs.slice(i, i + CHUNK).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+
+  await deleteDoc(doc(db, "series", seriesId));
 }

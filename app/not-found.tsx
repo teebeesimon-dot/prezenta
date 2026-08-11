@@ -14,7 +14,7 @@ export default function NotFound() {
         href="/"
         className="mt-8 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover"
       >
-        Înapoi la Ne Adunam
+        Înapoi la prezenta
       </Link>
     </main>
   );

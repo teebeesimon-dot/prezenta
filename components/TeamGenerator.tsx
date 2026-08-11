@@ -53,10 +53,20 @@ function TeamCard({
   title,
   players,
   className,
+  editable,
+  teamNames,
+  teamIndex,
+  onMovePlayer,
+  movingPlayerId,
 }: {
   title: string;
   players: ParticipantEntry[];
   className: string;
+  editable?: boolean;
+  teamNames?: string[];
+  teamIndex?: number;
+  onMovePlayer?: (userId: string, fromIndex: number, toIndex: number) => void;
+  movingPlayerId?: string | null;
 }) {
   return (
     <div className={`rounded-2xl border p-4 ${className}`}>
@@ -64,7 +74,7 @@ function TeamCard({
         {title} ({players.length})
       </h3>
       {players.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">No players assigned.</p>
+        <p className="mt-3 text-sm text-muted-foreground">Niciun jucător alocat.</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {players.map((player) => (
@@ -76,9 +86,26 @@ function TeamCard({
                 name={player.name}
                 photoURL={player.photoURL}
               />
-              <span className="text-sm font-medium text-foreground">
+              <span className="flex-1 truncate text-sm font-medium text-foreground">
                 {player.name}
               </span>
+              {editable && teamNames && typeof teamIndex === "number" && onMovePlayer && (
+                <select
+                  aria-label={`Mută pe ${player.name} în altă echipă`}
+                  value={teamIndex}
+                  disabled={movingPlayerId === player.userId}
+                  onChange={(event) =>
+                    onMovePlayer(player.userId, teamIndex, Number(event.target.value))
+                  }
+                  className="shrink-0 rounded-lg border border-border bg-background px-2 py-1 text-xs font-medium text-foreground disabled:opacity-50"
+                >
+                  {teamNames.map((name, index) => (
+                    <option key={name} value={index}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </li>
           ))}
         </ul>
@@ -88,7 +115,7 @@ function TeamCard({
 }
 
 function getParticipantName(data: Record<string, unknown>): string {
-  return (data.userName as string) || (data.name as string) || "Unknown";
+  return (data.userName as string) || (data.name as string) || "Necunoscut";
 }
 
 function getParticipantPhoto(data: Record<string, unknown>): string | null {
@@ -105,6 +132,7 @@ export default function TeamGenerator({
   const [confirmed, setConfirmed] = useState<ParticipantEntry[]>([]);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [movingPlayerId, setMovingPlayerId] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(
@@ -160,12 +188,15 @@ export default function TeamGenerator({
         teams: {
           teamA: generated.teamA,
           teamB: generated.teamB,
-          teams: generated.teams,
+          // Firestore does not support arrays nested directly inside arrays,
+          // so each team is wrapped in an object ({ players: [...] }) instead
+          // of being a bare array — this keeps it as an array of maps.
+          teams: (generated.teams ?? []).map((players) => ({ players })),
           generatedAt: Timestamp.now(),
         },
       });
     } catch {
-      setError("Could not generate teams. Try again.");
+      setError("Nu am putut genera echipele. Încearcă din nou.");
     } finally {
       setGenerating(false);
     }
@@ -173,6 +204,37 @@ export default function TeamGenerator({
 
   const displayTeams = teams?.teams?.length ? teams.teams : [teams?.teamA ?? [], teams?.teamB ?? []];
   const hasTeams = displayTeams.some((team) => team.length > 0);
+  const teamNames = displayTeams.map((_, index) => `Echipa ${String.fromCharCode(65 + index)}`);
+
+  async function handleMovePlayer(userId: string, fromIndex: number, toIndex: number) {
+    if (!isOwner || fromIndex === toIndex) return;
+
+    const nextTeams = displayTeams.map((players) => [...players]);
+    const fromTeam = nextTeams[fromIndex];
+    const playerIndex = fromTeam.findIndex((player) => player.userId === userId);
+    if (playerIndex === -1) return;
+
+    const [player] = fromTeam.splice(playerIndex, 1);
+    nextTeams[toIndex].push(player);
+
+    setMovingPlayerId(userId);
+    setError("");
+
+    try {
+      await updateDoc(doc(db, "events", eventId), {
+        teams: {
+          teamA: nextTeams[0] ?? [],
+          teamB: nextTeams[1] ?? [],
+          teams: nextTeams.map((players) => ({ players })),
+          generatedAt: Timestamp.now(),
+        },
+      });
+    } catch {
+      setError("Nu am putut muta jucătorul. Încearcă din nou.");
+    } finally {
+      setMovingPlayerId(null);
+    }
+  }
 
   if (!isOwner && !hasTeams) {
     return null;
@@ -181,7 +243,7 @@ export default function TeamGenerator({
   return (
     <section className="mt-8">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-bold tracking-tight text-foreground">Teams</h2>
+        <h2 className="text-xl font-bold tracking-tight text-foreground">Echipe</h2>
         {isOwner && (
           <button
             type="button"
@@ -190,17 +252,17 @@ export default function TeamGenerator({
             className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
             {generating
-              ? "Generating..."
+              ? "Se generează..."
               : hasTeams
-                ? "Regenerate Random Teams"
-                : "Random Teams"}
+                ? "Regenerează echipe"
+                : "Echipe aleatorii"}
           </button>
         )}
       </div>
 
       {isOwner && confirmed.length < 2 && (
         <p className="mb-4 text-sm text-muted-foreground">
-          At least 2 confirmed players are needed to generate teams.
+          Sunt necesari cel puțin 2 jucători confirmați pentru a genera echipe.
         </p>
       )}
 
@@ -211,21 +273,33 @@ export default function TeamGenerator({
       )}
 
       {hasTeams ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {displayTeams.map((players, index) => (
-            <TeamCard
-              key={index}
-              title={`Echipa ${String.fromCharCode(65 + index)}`}
-              players={players}
-              className={index % 2 === 0 ? "border-primary/30 bg-primary/5" : "border-accent/40 bg-accent/10"}
-            />
-          ))}
-        </div>
+        <>
+          {isOwner && (
+            <p className="mb-4 text-sm text-muted-foreground">
+              Poți muta manual jucătorii între echipe folosind meniul de lângă fiecare nume.
+            </p>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {displayTeams.map((players, index) => (
+              <TeamCard
+                key={index}
+                title={teamNames[index]}
+                players={players}
+                className={index % 2 === 0 ? "border-primary/30 bg-primary/5" : "border-accent/40 bg-accent/10"}
+                editable={isOwner}
+                teamNames={teamNames}
+                teamIndex={index}
+                onMovePlayer={handleMovePlayer}
+                movingPlayerId={movingPlayerId}
+              />
+            ))}
+          </div>
+        </>
       ) : (
         isOwner && (
           <div className="rounded-2xl border border-dashed border-border bg-muted p-8 text-center">
             <p className="text-muted-foreground">
-              Generate random teams from confirmed players.
+              Generează echipe aleatorii din jucătorii confirmați.
             </p>
           </div>
         )

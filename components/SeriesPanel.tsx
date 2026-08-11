@@ -9,6 +9,7 @@ import { formatLei } from "@/lib/pricing";
 import { RECURRENCE_OPTIONS, todayISO } from "@/lib/recurrence";
 import {
   closeSeries,
+  deleteSeriesCompletely,
   getSeriesHistory,
   mapFirestoreSeries,
   reopenSeries,
@@ -37,6 +38,7 @@ export default function SeriesPanel({
   const [series, setSeries] = useState<Series | null>(null);
   const [history, setHistory] = useState<Event[]>([]);
   const [busy, setBusy] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   // Live series doc (status, endDate, monthlyPrice, current occurrence).
   useEffect(() => {
@@ -89,6 +91,18 @@ export default function SeriesPanel({
       await reopenSeries(series.id);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!series) return;
+    setBusy(true);
+    try {
+      await deleteSeriesCompletely(series.id, series.ownerId);
+      router.push("/");
+    } catch {
+      setBusy(false);
+      setConfirmingDelete(false);
     }
   }
 
@@ -181,6 +195,45 @@ export default function SeriesPanel({
           prezența.
         </p>
       </div>
+
+      {isOwner && (
+        <div className="mt-6 border-t border-border pt-5">
+          {confirmingDelete ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm font-medium text-foreground">
+                Sigur ștergi toată seria? Se vor șterge definitiv toate
+                aparițiile ({history.length}), inclusiv cele din istoric.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={busy}
+                  className="rounded-xl bg-destructive px-4 py-2.5 text-sm font-bold text-destructive-foreground transition hover:opacity-90 disabled:opacity-60"
+                >
+                  {busy ? "Se șterge..." : "Da, șterge seria"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={busy}
+                  className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-card-foreground transition hover:bg-muted disabled:opacity-60"
+                >
+                  Anulează
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm font-semibold text-destructive transition hover:bg-destructive/20"
+            >
+              Șterge seria definitiv
+            </button>
+          )}
+        </div>
+      )}
     </section>
   );
 }

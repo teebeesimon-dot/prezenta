@@ -21,13 +21,13 @@ export default function RequireSuperAdmin({ children }: RequireSuperAdminProps) 
   if (!user) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <p className="text-muted-foreground">Sign in with Google to access admin.</p>
+        <p className="text-muted-foreground">Conectează-te cu Google pentru a accesa zona de admin.</p>
         <button
           type="button"
           onClick={signInWithGoogle}
           className="mt-4 inline-flex rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover"
         >
-          Sign in with Google
+          Conectează-te cu Google
         </button>
       </div>
     );
@@ -36,15 +36,15 @@ export default function RequireSuperAdmin({ children }: RequireSuperAdminProps) 
   if (!isSuperAdmin) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-foreground">Access denied</h1>
+        <h1 className="text-2xl font-bold text-foreground">Acces interzis</h1>
         <p className="mt-2 text-muted-foreground">
-          Only super admins can access this page.
+          Doar super adminii pot accesa această pagină.
         </p>
         <Link
           href="/"
           className="mt-6 inline-block rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover"
         >
-          Back home
+          Înapoi acasă
         </Link>
       </div>
     );

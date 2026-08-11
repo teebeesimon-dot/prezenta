@@ -12,19 +12,20 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <div className="min-h-full bg-background">
-      <div className="mx-auto max-w-3xl px-4 py-10 sm:py-16">
+      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-16 lg:px-8">
         <header className="mb-12 text-center sm:text-left">
-          <span className="inline-flex items-center gap-2 rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-accent">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            Hai pe teren
+          <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            Vezi cine vine
           </span>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight text-balance text-foreground sm:text-6xl">
-            Adună echipa,{" "}
-            <span className="text-primary">intră în joc</span>
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-balance text-foreground sm:text-6xl">
+            Vezi cine vine.{" "}
+            <span className="text-primary">Joacă mai mult.</span>
           </h1>
           <p className="mt-4 max-w-xl text-lg leading-relaxed text-muted-foreground">
-            Organizează evenimente sportive, confirmă prezența și distribuie
-            linkul direct echipei — totul într-un singur loc.
+            Organizează rapid activități sportive și vezi în timp real cine
+            participă. Creează un joc, invită oameni și completează echipa fără
+            zeci de mesaje pe grupuri.
           </p>
           <HomeActions />
         </header>

@@ -19,6 +19,6 @@ export function isSuperAdmin(role: UserRole | null | undefined): boolean {
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: "Super Admin",
-  organizer: "Organizer",
-  user: "User",
+  organizer: "Organizator",
+  user: "Utilizator",
 };

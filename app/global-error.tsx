@@ -11,7 +11,7 @@ export default function GlobalError({
     <html lang="ro">
       <body className="flex min-h-screen items-center justify-center bg-background px-4 font-sans text-foreground">
         <main className="max-w-md text-center">
-          <h1 className="text-2xl font-bold tracking-tight">Ne Adunam</h1>
+          <h1 className="text-2xl font-bold tracking-tight">prezenta</h1>
           <p className="mt-3 text-sm text-muted-foreground">
             Aplicația a întâmpinat o eroare critică.
           </p>

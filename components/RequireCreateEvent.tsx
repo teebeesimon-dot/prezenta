@@ -21,13 +21,13 @@ export default function RequireCreateEvent({ children }: RequireCreateEventProps
   if (!user) {
     return (
       <div className="rounded-2xl border border-border bg-muted p-8 text-center">
-        <p className="text-muted-foreground">Sign in with Google to continue.</p>
+        <p className="text-muted-foreground">Conectează-te cu Google pentru a continua.</p>
         <button
           type="button"
           onClick={signInWithGoogle}
           className="mt-4 inline-flex rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover"
         >
-          Sign in with Google
+          Conectează-te cu Google
         </button>
       </div>
     );
@@ -36,15 +36,15 @@ export default function RequireCreateEvent({ children }: RequireCreateEventProps
   if (!canCreateEvents) {
     return (
       <div className="rounded-2xl border border-border bg-muted p-8 text-center">
-        <h2 className="text-lg font-semibold text-foreground">Access denied</h2>
+        <h2 className="text-lg font-semibold text-foreground">Acces interzis</h2>
         <p className="mt-2 text-muted-foreground">
-          Only organizers and super admins can create events.
+          Doar organizatorii și super adminii pot crea evenimente.
         </p>
         <Link
           href="/"
           className="mt-4 inline-flex rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover"
         >
-          Back home
+          Înapoi acasă
         </Link>
       </div>
     );

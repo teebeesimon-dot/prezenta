@@ -87,7 +87,7 @@ export default function EditEventPageClient({ id }: EditEventPageClientProps) {
 
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
         <h1 className="mb-6 text-2xl font-extrabold tracking-tight text-card-foreground sm:text-3xl">
-          Edit Event
+          Editează evenimentul
         </h1>
         <EditEventForm event={event} />
       </div>

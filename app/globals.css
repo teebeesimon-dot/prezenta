@@ -2,24 +2,24 @@
 
 :root {
   /* Neutrals */
-  --background: #f4f7f5;
-  --foreground: #0c1411;
+  --background: #ffffff;
+  --foreground: #0d0d0d;
   --card: #ffffff;
-  --card-foreground: #0c1411;
-  --muted: #eef2ef;
-  --muted-foreground: #5b6863;
-  --border: #dde5e0;
-  --input: #dde5e0;
-  --ring: #059669;
+  --card-foreground: #0d0d0d;
+  --muted: #f4f5f4;
+  --muted-foreground: #5b615d;
+  --border: #e6e8e7;
+  --input: #e6e8e7;
+  --ring: #22c55e;
 
-  /* Brand — energetic emerald */
-  --primary: #059669;
-  --primary-hover: #047857;
+  /* Brand — prezenta green */
+  --primary: #16a34a;
+  --primary-hover: #15803d;
   --primary-foreground: #ffffff;
 
-  /* Accent — lime pop for sporty energy */
-  --accent: #65a30d;
-  --accent-foreground: #ffffff;
+  /* Accent — vivid green pop */
+  --accent: #22c55e;
+  --accent-foreground: #0d0d0d;
 
   /* Feedback */
   --destructive: #dc2626;
@@ -53,36 +53,34 @@
   --radius-md: calc(var(--radius) - 0.25rem);
   --radius-sm: calc(var(--radius) - 0.5rem);
 
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-poppins);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #07100d;
-    --foreground: #e7f0ec;
-    --card: #0f1714;
-    --card-foreground: #e7f0ec;
-    --muted: #16201c;
-    --muted-foreground: #93a39b;
-    --border: #20302a;
-    --input: #20302a;
-    --ring: #10b981;
+.dark {
+  --background: #0d0d0d;
+  --foreground: #fafafa;
+  --card: #1a1a1a;
+  --card-foreground: #fafafa;
+  --muted: #1a1a1a;
+  --muted-foreground: #a1a1aa;
+  --border: #2a2a2a;
+  --input: #2a2a2a;
+  --ring: #22c55e;
 
-    --primary: #10b981;
-    --primary-hover: #34d399;
-    --primary-foreground: #04130d;
+  --primary: #22c55e;
+  --primary-hover: #16a34a;
+  --primary-foreground: #0d0d0d;
 
-    --accent: #84cc16;
-    --accent-foreground: #0c1400;
+  --accent: #22c55e;
+  --accent-foreground: #0d0d0d;
 
-    --destructive: #f87171;
-    --destructive-foreground: #1a0606;
-  }
+  --destructive: #f87171;
+  --destructive-foreground: #1a0606;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-poppins), system-ui, sans-serif;
 }

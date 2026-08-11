@@ -6,17 +6,24 @@ import EventCard from "@/components/EventCard";
 import { useAuth } from "@/contexts/AuthProvider";
 import { db } from "@/lib/firebase";
 import { mapFirestoreEvent } from "@/lib/events";
+import { subscribeMemberEvents, type MemberEventItem } from "@/lib/members";
 import { ensureCurrentOccurrence, subscribeOwnerSeries } from "@/lib/series";
 import type { Event, Series } from "@/lib/types";
 
-type DisplayItem =
-  | { kind: "event"; key: string; date: string; event: Event }
-  | { kind: "series"; key: string; date: string; event: Event; series: Series };
+type DisplayItem = {
+  kind: "event" | "series";
+  key: string;
+  date: string;
+  event: Event;
+  series?: Series;
+  invited?: boolean;
+};
 
 export default function EventList() {
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [series, setSeries] = useState<Series[]>([]);
+  const [memberItems, setMemberItems] = useState<MemberEventItem[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [loadingSeries, setLoadingSeries] = useState(true);
   // Tracks series currently being advanced to avoid duplicate writes.
@@ -27,6 +34,7 @@ export default function EventList() {
     if (!user) {
       setEvents([]);
       setSeries([]);
+      setMemberItems([]);
       setLoadingEvents(false);
       setLoadingSeries(false);
       return;
@@ -58,9 +66,13 @@ export default function EventList() {
       setLoadingSeries(false);
     });
 
+    // Events the user was invited to (member of a group they don't own).
+    const unsubMember = subscribeMemberEvents(user.uid, setMemberItems);
+
     return () => {
       unsubEvents();
       unsubSeries();
+      unsubMember();
     };
   }, [user, authLoading]);
 
@@ -90,30 +102,34 @@ export default function EventList() {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-muted p-8 text-center">
         <p className="text-muted-foreground">
-          Sign in with Google to see your events.
+          Conectează-te cu Google pentru a-ți vedea evenimentele.
         </p>
         <button
           type="button"
           onClick={signInWithGoogle}
           className="mt-4 inline-flex rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover"
         >
-          Sign in with Google
+          Conectează-te cu Google
         </button>
       </div>
     );
   }
 
-  // Standalone events (not part of a series).
   const eventById = new Map(events.map((e) => [e.id, e]));
   const items: DisplayItem[] = [];
+  // Track which events/series are already shown as "mine" to avoid duplicates.
+  const shownEventIds = new Set<string>();
+  const shownSeriesIds = new Set<string>();
 
+  // Standalone events owned by the user (not part of a series).
   for (const e of events) {
     if (!e.seriesId) {
       items.push({ kind: "event", key: e.id, date: e.date, event: e });
+      shownEventIds.add(e.id);
     }
   }
 
-  // One card per series → its current (upcoming) occurrence.
+  // One card per owned series → its current (upcoming) occurrence.
   for (const s of series) {
     const current = eventById.get(s.currentEventId);
     if (!current) continue;
@@ -124,6 +140,32 @@ export default function EventList() {
       event: current,
       series: s,
     });
+    shownSeriesIds.add(s.id);
+    shownEventIds.add(current.id);
+  }
+
+  // Events the user was invited to (deduped against owned items above).
+  for (const m of memberItems) {
+    if (m.kind === "member-series" && m.series) {
+      if (shownSeriesIds.has(m.series.id)) continue;
+      items.push({
+        kind: "series",
+        key: `invited-${m.series.id}`,
+        date: m.event.date,
+        event: m.event,
+        series: m.series,
+        invited: true,
+      });
+    } else {
+      if (shownEventIds.has(m.event.id)) continue;
+      items.push({
+        kind: "event",
+        key: `invited-${m.event.id}`,
+        date: m.event.date,
+        event: m.event,
+        invited: true,
+      });
+    }
   }
 
   items.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
@@ -131,27 +173,25 @@ export default function EventList() {
   if (items.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-muted p-8 text-center">
-        <p className="font-medium text-foreground">Nu ai evenimente create.</p>
+        <p className="font-medium text-foreground">Nu ai evenimente.</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Creează un eveniment și distribuie linkul direct participanților.
+          Creează un eveniment sau deschide linkul unui eveniment la care ai
+          fost invitat.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {items.map((item) =>
-        item.kind === "series" ? (
-          <EventCard
-            key={item.key}
-            event={item.event}
-            series={item.series}
-          />
-        ) : (
-          <EventCard key={item.key} event={item.event} />
-        )
-      )}
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {items.map((item) => (
+        <EventCard
+          key={item.key}
+          event={item.event}
+          series={item.series}
+          invited={item.invited}
+        />
+      ))}
     </div>
   );
 }

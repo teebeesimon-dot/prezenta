@@ -4,6 +4,8 @@ import { doc, onSnapshot } from "firebase/firestore";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import AttendanceSection from "@/components/AttendanceSection";
+import DeleteEventButton from "@/components/DeleteEventButton";
+import MembersGroup from "@/components/MembersGroup";
 import OpenInGoogleMapsButton from "@/components/OpenInGoogleMapsButton";
 import SeriesPanel from "@/components/SeriesPanel";
 import ShareOnWhatsAppButton from "@/components/ShareOnWhatsAppButton";
@@ -12,6 +14,11 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { db } from "@/lib/firebase";
 import { formatEventDate, mapFirestoreEvent } from "@/lib/events";
 import { getEventLocationName } from "@/lib/location";
+import {
+  computeRegistrationOpensAt,
+  formatRegistrationOpensAt,
+} from "@/lib/registration";
+import { resolveGroup } from "@/lib/members";
 import { SPORT_LABELS } from "@/lib/labels";
 import {
   computeTotalCost,
@@ -26,7 +33,7 @@ interface EventPageClientProps {
 }
 
 export default function EventPageClient({ id }: EventPageClientProps) {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -81,8 +88,17 @@ export default function EventPageClient({ id }: EventPageClientProps) {
     );
   }
 
+  const canManage = user?.uid === event.ownerId || isSuperAdmin;
+  const registrationOpensAt = computeRegistrationOpensAt({
+    date: event.date,
+    time: event.time,
+    registrationLeadValue: event.registrationLeadValue,
+    registrationLeadUnit: event.registrationLeadUnit,
+    registrationOpenTime: event.registrationOpenTime,
+  });
+
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
       <Link
         href="/"
         className="mb-6 inline-flex items-center text-sm font-medium text-primary transition hover:text-primary-hover"
@@ -143,6 +159,16 @@ export default function EventPageClient({ id }: EventPageClientProps) {
             </dt>
             <dd className="mt-1 text-card-foreground">{event.maxParticipants}</dd>
           </div>
+          {registrationOpensAt ? (
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Deschidere înscrieri
+              </dt>
+              <dd className="mt-1 text-card-foreground">
+                {formatRegistrationOpensAt(registrationOpensAt)}
+              </dd>
+            </div>
+          ) : null}
           {event.paymentModel !== "monthly" && event.pricePerHour ? (
             <div>
               <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -177,20 +203,23 @@ export default function EventPageClient({ id }: EventPageClientProps) {
               onClick={handleCopyLink}
               className="inline-flex w-full items-center justify-center rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-card-foreground transition hover:bg-muted active:scale-[0.98] sm:w-auto"
             >
-              Copy Event Link
+              Copiază linkul evenimentului
             </button>
-            {user?.uid === event.ownerId && (
+            {canManage && (
               <Link
                 href={`/event/${event.id}/edit`}
                 className="inline-flex w-full items-center justify-center rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm font-semibold text-primary transition hover:bg-primary/20 active:scale-[0.98] sm:w-auto"
               >
-                Edit Event
+                Editează evenimentul
               </Link>
+            )}
+            {canManage && !event.seriesId && (
+              <DeleteEventButton eventId={event.id} className="w-full sm:w-auto" />
             )}
           </div>
           {copied && (
             <p className="mt-3 text-sm font-medium text-primary">
-              Link copied to clipboard!
+              Link copiat!
             </p>
           )}
         </div>
@@ -200,9 +229,20 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         <SeriesPanel
           seriesId={event.seriesId}
           currentViewedEventId={event.id}
-          isOwner={user?.uid === event.ownerId}
+          isOwner={canManage}
         />
       )}
+
+      <MembersGroup
+        eventId={event.id}
+        {...resolveGroup(event)}
+        ownerId={event.ownerId}
+        eventDate={event.date}
+        pricePerHour={event.pricePerHour}
+        durationMinutes={event.durationMinutes}
+        paymentModel={event.paymentModel}
+        canManage={canManage}
+      />
 
       <AttendanceSection
         eventId={event.id}
@@ -211,8 +251,12 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         durationMinutes={event.durationMinutes}
         ownerId={event.ownerId}
         eventDate={event.date}
-        canManage={user?.uid === event.ownerId}
+        eventTime={event.time}
+        canManage={canManage}
         paymentModel={event.paymentModel}
+        registrationLeadValue={event.registrationLeadValue}
+        registrationLeadUnit={event.registrationLeadUnit}
+        registrationOpenTime={event.registrationOpenTime}
       />
 
       <TeamGenerator
@@ -220,7 +264,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         maxParticipants={event.maxParticipants}
         footballFormat={event.footballFormat}
         teams={event.teams}
-        isOwner={user?.uid === event.ownerId}
+        isOwner={canManage}
       />
     </div>
   );
