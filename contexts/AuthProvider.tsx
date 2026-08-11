@@ -1,9 +1,12 @@
 "use client";
 
+import { Capacitor } from "@capacitor/core";
+import { SocialLogin } from "@capgo/capacitor-social-login";
 import {
   getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
+  signInWithCredential,
   signInWithRedirect,
   signOut,
   type User,
@@ -22,6 +25,9 @@ import { canCreateEvents, isSuperAdmin } from "@/lib/roles";
 import type { UserProfile, UserRole } from "@/lib/types";
 import { saveUserProfile } from "@/lib/user-service";
 import { mapUserProfile } from "@/lib/users";
+
+const GOOGLE_WEB_CLIENT_ID =
+  "1068418224143-2j73duinolrees1n8o8i5ve3vnpqufer.apps.googleusercontent.com";
 
 interface AuthContextValue {
   user: User | null;
@@ -110,9 +116,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = useCallback(async () => {
     setAuthError(null);
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: "select_account" });
     try {
+      if (Capacitor.getPlatform() === "android") {
+        await SocialLogin.initialize({
+          google: {
+            webClientId: GOOGLE_WEB_CLIENT_ID,
+            mode: "online",
+          },
+        });
+
+        const result = await SocialLogin.login({
+          provider: "google",
+          options: {
+            scopes: ["email", "profile"],
+            filterByAuthorizedAccounts: false,
+          },
+        });
+
+        const idToken =
+          result.result && "idToken" in result.result
+            ? result.result.idToken
+            : null;
+
+        if (!idToken) {
+          throw new Error("Autentificarea Google a eșuat. Încearcă din nou.");
+        }
+
+        const credential = GoogleAuthProvider.credential(idToken);
+        await signInWithCredential(auth, credential);
+        return;
+      }
+
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
       // Use a full-page redirect instead of a popup. Popups are immediately
       // closed by embedded previews, Safari, and browsers with strict blockers.
       await signInWithRedirect(auth, provider);

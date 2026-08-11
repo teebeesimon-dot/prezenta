@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Prezenta</string>
+    <string name="title_activity_main">Prezenta</string>
+    <string name="package_name">ro.com.prezenta</string>
+    <string name="custom_url_scheme">ro.com.prezenta</string>
+</resources>

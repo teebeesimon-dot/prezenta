@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1068418224143",
+    "project_id": "ne-adunam",
+    "storage_bucket": "ne-adunam.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1068418224143:android:14d6d099442a97ff59937a",
+        "android_client_info": {
+          "package_name": "ro.com.prezenta"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1068418224143-2j73duinolrees1n8o8i5ve3vnpqufer.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC29L0AaJjHwN8JdYT5YeCbKaepfnSvZN8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1068418224143-2j73duinolrees1n8o8i5ve3vnpqufer.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
