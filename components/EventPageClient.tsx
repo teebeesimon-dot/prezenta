@@ -33,15 +33,36 @@ interface EventPageClientProps {
 }
 
 export default function EventPageClient({ id }: EventPageClientProps) {
-  const { user, isSuperAdmin } = useAuth();
+  const { user, loading: authLoading, isSuperAdmin } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
   useEffect(() => {
+    // Wait for the initial auth state to resolve before reading the event.
+    // Reading while signed out (e.g. right after a Google redirect that
+    // hasn't finished yet) is denied by Firestore rules and would otherwise
+    // get stuck showing "Eveniment negăsit" forever, since this effect only
+    // re-runs when `id` or `user` change.
+    if (authLoading) {
+      return;
+    }
+
+    if (!user) {
+      // Not signed in: don't attempt the read (it would be denied), just
+      // show the sign-in state via the "not found"/login UI below.
+      setEvent(null);
+      setPermissionDenied(false);
+      setLoaded(true);
+      return;
+    }
+
+    setLoaded(false);
     const unsubscribe = onSnapshot(
       doc(db, "events", id),
       (snapshot) => {
+        setPermissionDenied(false);
         if (snapshot.exists()) {
           setEvent(mapFirestoreEvent(snapshot.id, snapshot.data()));
         } else {
@@ -49,13 +70,18 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         }
         setLoaded(true);
       },
-      () => {
+      (error) => {
+        // permission-denied can happen transiently right after sign-in while
+        // the auth token hasn't propagated to Firestore yet. Surface it
+        // distinctly so we don't tell the user the event doesn't exist.
+        setPermissionDenied((error as { code?: string })?.code === "permission-denied");
+        setEvent(null);
         setLoaded(true);
       }
     );
 
     return () => unsubscribe();
-  }, [id]);
+  }, [id, user, authLoading]);
 
   async function handleCopyLink() {
     await navigator.clipboard.writeText(window.location.href);
@@ -67,6 +93,28 @@ export default function EventPageClient({ id }: EventPageClientProps) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <p className="text-muted-foreground">Se încarcă...</p>
+      </div>
+    );
+  }
+
+  if (!event && !user) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <h1 className="text-2xl font-bold text-foreground">Autentificare necesară</h1>
+        <p className="mt-2 text-muted-foreground">
+          Conectează-te cu Google (butonul din header) pentru a vedea acest eveniment.
+        </p>
+      </div>
+    );
+  }
+
+  if (!event && permissionDenied) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <h1 className="text-2xl font-bold text-foreground">Se finalizează autentificarea...</h1>
+        <p className="mt-2 text-muted-foreground">
+          Reîncarcă pagina în câteva secunde dacă evenimentul nu apare.
+        </p>
       </div>
     );
   }
