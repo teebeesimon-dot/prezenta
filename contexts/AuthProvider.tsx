@@ -7,6 +7,7 @@ import {
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithCredential,
+  signInWithPopup,
   signInWithRedirect,
   signOut,
   type User,
@@ -48,6 +49,7 @@ function getAuthErrorMessage(error: unknown) {
   if (code === "auth/unauthorized-domain") return "Acest domeniu nu este autorizat în Firebase pentru autentificare.";
   if (code === "auth/operation-not-supported-in-this-environment") return "Autentificarea Google nu este disponibilă în acest browser.";
   if (code === "auth/network-request-failed") return "Conexiunea către Firebase a eșuat. Verifică internetul și încearcă din nou.";
+  if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") return "";
   return code
     ? `Autentificarea Google a eșuat (${code}). Verifică domeniul autorizat în Firebase.`
     : "Autentificarea Google a eșuat. Încearcă din nou.";
@@ -149,8 +151,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
-      // Use a full-page redirect instead of a popup. Popups are immediately
-      // closed by embedded previews, Safari, and browsers with strict blockers.
+
+      try {
+        // Prefer a popup: the sign-in completes entirely inside the popup
+        // window (same-origin as Firebase's authDomain), so no cross-domain
+        // storage read is needed afterwards. signInWithRedirect instead
+        // relies on a cross-origin iframe to read the result back from the
+        // authDomain once the browser returns to our page — on Chrome for
+        // Android (and other browsers with third-party storage
+        // partitioning enabled) that read silently fails, so the user
+        // selects their Google account, gets bounced back, and stays
+        // signed out with no visible error. A popup avoids that failure
+        // mode entirely.
+        await signInWithPopup(auth, provider);
+        return;
+      } catch (popupError) {
+        const code = (popupError as { code?: string })?.code ?? "";
+        // Only fall back to a full-page redirect when the popup itself
+        // couldn't be shown at all. If the user deliberately closed it,
+        // surface that as-is instead of forcing a redirect they didn't ask for.
+        const shouldFallBackToRedirect =
+          code === "auth/popup-blocked" ||
+          code === "auth/operation-not-supported-in-this-environment";
+        if (!shouldFallBackToRedirect) {
+          throw popupError;
+        }
+      }
+
       await signInWithRedirect(auth, provider);
     } catch (error) {
       console.error("[v0] signInWithGoogle redirect error:", error);
