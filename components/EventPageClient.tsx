@@ -156,7 +156,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
 
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="text-2xl font-extrabold tracking-tight text-card-foreground sm:text-3xl">
+          <h1 className="min-w-0 flex-1 break-words text-2xl font-extrabold tracking-tight text-card-foreground sm:text-3xl">
             {event.title}
           </h1>
           <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
@@ -197,7 +197,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Locație
             </dt>
-            <dd className="mt-1 text-card-foreground">
+            <dd className="mt-1 break-words text-card-foreground">
               {getEventLocationName(event)}
             </dd>
           </div>

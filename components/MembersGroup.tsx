@@ -83,6 +83,7 @@ export default function MembersGroup({
   const [joining, setJoining] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const monthKey = eventDate ? monthKeyFromDate(eventDate) : "";
 
@@ -216,9 +217,19 @@ export default function MembersGroup({
   return (
     <section className="mt-8">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-bold tracking-tight text-foreground">
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
+          className="flex items-center gap-2 text-xl font-bold tracking-tight text-foreground transition hover:text-foreground/80"
+        >
+          <ChevronDownIcon
+            className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform ${
+              expanded ? "rotate-180" : ""
+            }`}
+          />
           Grup ({members.length})
-        </h2>
+        </button>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -259,6 +270,28 @@ export default function MembersGroup({
         />
       )}
 
+      {!expanded ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="flex w-full items-center justify-between gap-3 rounded-2xl border border-border bg-card p-5 text-left shadow-sm transition hover:bg-muted"
+        >
+          <span className="text-sm text-muted-foreground">
+            {members.length === 0
+              ? "Niciun membru încă."
+              : `${members.length} ${
+                  members.length === 1 ? "membru" : "membri"
+                } în grup`}
+            {" · "}
+            {paymentModel === "monthly"
+              ? `abonament lunar${monthKey ? ` · ${monthLabel(monthKey)}` : ""}`
+              : "plată per joc"}
+          </span>
+          <span className="shrink-0 text-sm font-semibold text-primary">
+            Vezi grupul
+          </span>
+        </button>
+      ) : (
       <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
         <p className="text-sm text-muted-foreground">
           {paymentModel === "monthly"
@@ -395,6 +428,24 @@ export default function MembersGroup({
             : "Plata fiecărui membru e gestionată de organizator."}
         </p>
       </div>
+      )}
     </section>
+  );
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
   );
 }

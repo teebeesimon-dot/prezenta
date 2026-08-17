@@ -32,6 +32,14 @@ service cloud.firestore {
       return userExists() && userRole() == 'organizer';
     }
 
+    // Any signed-in user who is on the roster (members/) of a given series —
+    // used so invited members (not just the owner) can list a series'
+    // occurrences (history), not only the series owner / super admin.
+    function isSeriesMember(seriesId) {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/members/$(seriesId + '_' + request.auth.uid));
+    }
+
     function canCreateEvents() {
       return isSuperAdmin() || isOrganizer();
     }
@@ -112,8 +120,14 @@ service cloud.firestore {
     match /events/{eventId} {
       allow get: if isAuthenticated();
 
+      // Owner / super admin may list any of their events; a series member
+      // (invited or joined) may list that series' occurrences (history).
       allow list: if isAuthenticated()
-        && (resource.data.ownerId == request.auth.uid || isSuperAdmin());
+        && (
+          resource.data.ownerId == request.auth.uid
+          || isSuperAdmin()
+          || ('seriesId' in resource.data && isSeriesMember(resource.data.seriesId))
+        );
 
       allow create: if canCreateEvents()
         && request.resource.data.ownerId == request.auth.uid
