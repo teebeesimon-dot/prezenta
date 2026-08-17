@@ -227,6 +227,7 @@ export default function AttendanceSection({
   const [payments, setPayments] = useState<Record<string, "paid" | "unpaid">>({});
   const [subscriptions, setSubscriptions] = useState<SubscriptionMap>({});
   const [now, setNow] = useState(() => Date.now());
+  const [confirmedExpanded, setConfirmedExpanded] = useState(false);
 
   const registrationOpensAt = computeRegistrationOpensAt({
     date: eventDate ?? "",
@@ -493,177 +494,162 @@ export default function AttendanceSection({
         </div>
       </div>
 
-      {paymentModel === "monthly" && (
-        <div className="mt-6 rounded-2xl border border-accent/30 bg-accent/5 p-5">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Abonament lunar{monthKey ? ` · ${monthLabel(monthKey)}` : ""}
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {confirmed.filter((p) => subscriptions[p.userId]).length} din{" "}
-            {confirmed.length} confirmați au abonament activ pentru această lună.
-          </p>
-          {confirmed.length > 0 && (
-            <ul className="mt-4 divide-y divide-border/60 border-t border-border/60">
-              {confirmed.map((player) => {
-                const subscribed = Boolean(subscriptions[player.userId]);
-                return (
-                  <li
-                    key={player.userId}
-                    className="flex items-center justify-between gap-3 py-2.5"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                      {player.name}
-                    </span>
-                    {subscribed ? (
-                      <span className="rounded-full bg-accent/20 px-2.5 py-1 text-xs font-medium text-accent-foreground">
-                        Abonat
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                        Fără abonament
-                      </span>
-                    )}
-                    {canManage && monthKey && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleToggleSubscription(
-                            player.userId,
-                            player.name,
-                            !subscribed
-                          )
-                        }
-                        className="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"
-                      >
-                        {subscribed ? "Anulează abonament" : "Abonează"}
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <p className="mt-3 text-xs text-muted-foreground">
-            Abonamentul e global pe lună: acoperă toate jocurile seriei din luna
-            respectivă.
-          </p>
-        </div>
-      )}
+      <div className="mt-6 flex flex-col gap-4">
+        <div
+          className={`rounded-2xl border p-4 ${
+            paymentModel === "monthly"
+              ? "border-accent/30 bg-accent/5"
+              : "border-primary/30 bg-primary/5"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setConfirmedExpanded((value) => !value)}
+            aria-expanded={confirmedExpanded}
+            className="flex w-full flex-wrap items-start justify-between gap-3 text-left"
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              <ChevronIcon
+                className={`h-4 w-4 shrink-0 transition-transform ${
+                  confirmedExpanded ? "rotate-180" : ""
+                }`}
+              />
+              Confirmați ({confirmed.length}/{maxParticipants})
+            </span>
 
-      {paymentModel !== "monthly" && totalCost > 0 && (
-        <div className="mt-6 rounded-2xl border border-primary/30 bg-primary/5 p-5">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Cost de plată
-          </h3>
-          <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-3xl font-extrabold tracking-tight text-foreground">
-                {payers.length > 0
-                  ? formatLei(perPlayer)
-                  : formatLei(totalCost)}
+            {paymentModel === "monthly" ? (
+              <p className="text-right text-sm text-muted-foreground">
+                {confirmed.filter((p) => subscriptions[p.userId]).length} din{" "}
+                {confirmed.length} au abonament
+                {monthKey ? ` · ${monthLabel(monthKey)}` : ""}
               </p>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                {payers.length > 0
-                  ? `de jucător (${payers.length} de plată)`
-                  : "cost total — niciun jucător de plată"}
-              </p>
-            </div>
-            <div className="text-right text-sm text-muted-foreground">
-              <p>
-                Total teren:{" "}
-                <span className="font-semibold text-foreground">
+            ) : totalCost > 0 ? (
+              <div className="text-right text-sm text-muted-foreground">
+                <p className="text-lg font-extrabold tracking-tight text-foreground">
+                  {payers.length > 0 ? formatLei(perPlayer) : formatLei(totalCost)}
+                  <span className="ml-1 text-xs font-medium text-muted-foreground">
+                    {payers.length > 0 ? "/ jucător" : "cost total"}
+                  </span>
+                </p>
+                <p className="mt-0.5">
+                  Strâns:{" "}
+                  <span className="font-semibold text-primary">
+                    {formatLei(collected)}
+                  </span>{" "}
+                  / {formatLei(perPlayer * payers.length)} · Teren{" "}
                   {formatLei(totalCost)}
-                </span>
-              </p>
-              <p className="mt-0.5">
-                Strâns:{" "}
-                <span className="font-semibold text-primary">
-                  {formatLei(collected)}
-                </span>{" "}
-                / {formatLei(perPlayer * payers.length)}
-              </p>
-            </div>
-          </div>
+                </p>
+              </div>
+            ) : null}
+          </button>
 
-          {confirmed.length > 0 && (
-            <ul className="mt-4 divide-y divide-border/60 border-t border-border/60">
+          {!confirmedExpanded ? (
+            <p className="mt-3 text-sm font-medium text-primary">
+              Vezi lista jucătorilor confirmați
+            </p>
+          ) : confirmed.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Niciun jucător confirmat încă.
+            </p>
+          ) : (
+            <ul className="mt-3 divide-y divide-border/60 border-t border-border/60">
               {confirmed.map((player) => {
                 const subscribed = Boolean(subscriptions[player.userId]);
                 const paid = isPaid(payments, player.userId);
                 return (
                   <li
                     key={player.userId}
-                    className="flex items-center justify-between gap-3 py-2.5"
+                    className="flex items-center gap-3 py-2.5"
                   >
-                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                    <span className="w-7 shrink-0 text-xs font-bold text-primary">
+                      {player.positionLabel}
+                    </span>
+                    <ParticipantAvatar
+                      name={player.name}
+                      photoURL={player.photoURL}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
                       {player.name}
                     </span>
-                    {subscribed ? (
-                      <span className="rounded-full bg-accent/20 px-2.5 py-1 text-xs font-medium text-accent-foreground">
-                        Abonament
-                      </span>
-                    ) : canManage ? (
-                      <button
-                        type="button"
-                        onClick={() => handleTogglePaid(player.userId, !paid)}
-                        className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                          paid
-                            ? "bg-primary text-primary-foreground"
-                            : "border border-border bg-background text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {paid ? `Plătit · ${formatLei(perPlayer)}` : "Neplătit"}
-                      </button>
-                    ) : (
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          paid
-                            ? "bg-primary/15 text-primary"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {paid ? "Plătit" : `${formatLei(perPlayer)}`}
-                      </span>
-                    )}
-                    {canManage && monthKey && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleToggleSubscription(
-                            player.userId,
-                            player.name,
-                            !subscribed
-                          )
-                        }
-                        className="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"
-                        title={`Abonament ${monthLabel(monthKey)}`}
-                      >
-                        {subscribed ? "Anulează abonament" : "Abonează"}
-                      </button>
-                    )}
+                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                      {paymentModel === "monthly" ? (
+                        subscribed ? (
+                          <span className="rounded-full bg-accent/20 px-2.5 py-1 text-xs font-medium text-accent-foreground">
+                            Abonat
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                            Fără abonament
+                          </span>
+                        )
+                      ) : subscribed ? (
+                        <span className="rounded-full bg-accent/20 px-2.5 py-1 text-xs font-medium text-accent-foreground">
+                          Abonament
+                        </span>
+                      ) : totalCost > 0 ? (
+                        canManage ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleTogglePaid(player.userId, !paid)
+                            }
+                            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                              paid
+                                ? "bg-primary text-primary-foreground"
+                                : "border border-border bg-background text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {paid ? `Plătit · ${formatLei(perPlayer)}` : "Neplătit"}
+                          </button>
+                        ) : (
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                              paid
+                                ? "bg-primary/15 text-primary"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {paid ? "Plătit" : formatLei(perPlayer)}
+                          </span>
+                        )
+                      ) : null}
+
+                      {canManage && monthKey && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleToggleSubscription(
+                              player.userId,
+                              player.name,
+                              !subscribed
+                            )
+                          }
+                          className="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+                          title={`Abonament ${monthKey ? monthLabel(monthKey) : ""}`}
+                        >
+                          {subscribed ? "Anulează abonament" : "Abonează"}
+                        </button>
+                      )}
+                    </div>
                   </li>
                 );
               })}
             </ul>
           )}
 
-          <p className="mt-3 text-xs text-muted-foreground">
-            {canManage
-              ? `Bifează cine a plătit. Abonații lunii ${
-                  monthKey ? monthLabel(monthKey) : ""
-                } sunt acoperiți și excluși din împărțeală.`
-              : "Suma per jucător se recalculează automat pe măsură ce se confirmă participanții."}
-          </p>
+          {confirmedExpanded && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              {paymentModel === "monthly"
+                ? "Abonamentul e global pe lună: acoperă toate jocurile seriei din luna respectivă."
+                : canManage
+                  ? `Bifează cine a plătit. Abonații lunii ${
+                      monthKey ? monthLabel(monthKey) : ""
+                    } sunt acoperiți și excluși din împărțeală.`
+                  : "Suma per jucător se recalculează automat pe măsură ce se confirmă participanții."}
+            </p>
+          )}
         </div>
-      )}
 
-      <div className="mt-6 flex flex-col gap-4">
-        <RankedParticipantList
-          title={`Confirmați (${confirmed.length}/${maxParticipants})`}
-          participants={confirmed}
-          className="border-primary/30 bg-primary/5"
-          emptyMessage="Niciun jucător confirmat încă."
-        />
         <RankedParticipantList
           title={`Listă de așteptare (${waitlist.length})`}
           participants={waitlist}
@@ -684,5 +670,22 @@ export default function AttendanceSection({
         />
       </div>
     </section>
+  );
+}
+
+function ChevronIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
   );
 }
