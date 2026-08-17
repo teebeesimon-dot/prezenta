@@ -559,19 +559,21 @@ export default function AttendanceSection({
                 return (
                   <li
                     key={player.userId}
-                    className="flex items-center gap-3 py-2.5"
+                    className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:gap-3"
                   >
-                    <span className="w-7 shrink-0 text-xs font-bold text-primary">
-                      {player.positionLabel}
-                    </span>
-                    <ParticipantAvatar
-                      name={player.name}
-                      photoURL={player.photoURL}
-                    />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                      {player.name}
-                    </span>
-                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="w-7 shrink-0 text-xs font-bold text-primary">
+                        {player.positionLabel}
+                      </span>
+                      <ParticipantAvatar
+                        name={player.name}
+                        photoURL={player.photoURL}
+                      />
+                      <span className="min-w-0 flex-1 break-words text-sm font-medium text-foreground sm:truncate">
+                        {player.name}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 pl-10 sm:shrink-0 sm:flex-nowrap sm:justify-end sm:pl-0">
                       {paymentModel === "monthly" ? (
                         subscribed ? (
                           <span className="rounded-full bg-accent/20 px-2.5 py-1 text-xs font-medium text-accent-foreground">
