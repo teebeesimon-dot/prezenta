@@ -3,10 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
-
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -57,20 +53,11 @@ service cloud.firestore {
       return request.resource.data.role == resource.data.role;
     }
 
-    // -------------------------------------------------------------------------
-    // users/{userId}
-    // -------------------------------------------------------------------------
-
     match /users/{userId} {
-      // Read own profile, or organizer / super_admin may read user profiles
       allow get: if isAuthenticated() && (
         request.auth.uid == userId || canReadUserProfiles()
       );
-
-      // Admin panel + member picker: super_admin / organizer list users
       allow list: if canReadUserProfiles();
-
-      // First login: create own profile with server-validated initial role
       allow create: if isAuthenticated()
         && request.auth.uid == userId
         && request.resource.data.uid == userId
@@ -79,10 +66,6 @@ service cloud.firestore {
         && request.resource.data.keys().hasAll([
           'uid', 'displayName', 'email', 'role', 'createdAt'
         ]);
-
-      // Self: update profile fields only (role must not change)
-      // Exception: configured super-admin email may bootstrap super_admin role
-      // Super admin: may update role on other users (user <-> organizer only)
       allow update: if isAuthenticated() && (
         (
           request.auth.uid == userId
@@ -99,49 +82,30 @@ service cloud.firestore {
             .hasOnly(['role', 'updatedAt'])
         )
       );
-
       allow delete: if false;
     }
 
-    // -------------------------------------------------------------------------
-    // events/{eventId}
-    // Authenticated users with the event ID (direct link) can read one event.
-    // Listing is restricted to events owned by the caller (home page).
-    // -------------------------------------------------------------------------
-
     match /events/{eventId} {
       allow get: if isAuthenticated();
-
       allow list: if isAuthenticated()
         && (resource.data.ownerId == request.auth.uid || isSuperAdmin());
-
       allow create: if canCreateEvents()
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.keys().hasAll([
           'title', 'sport', 'date', 'time', 'maxParticipants', 'ownerId', 'createdAt'
         ]);
-
       allow update: if isAuthenticated() && (
         resource.data.ownerId == request.auth.uid || isSuperAdmin()
       );
-
       allow delete: if isAuthenticated() && (
         resource.data.ownerId == request.auth.uid || isSuperAdmin()
       );
     }
 
-    // -------------------------------------------------------------------------
-    // series/{seriesId}
-    // Recurring series parent. Source of truth for recurrence; occurrences live
-    // in events/. Listing on the home page is restricted to the owner.
-    // -------------------------------------------------------------------------
-
     match /series/{seriesId} {
       allow get: if isAuthenticated();
-
       allow list: if isAuthenticated()
         && (resource.data.ownerId == request.auth.uid || isSuperAdmin());
-
       allow create: if canCreateEvents()
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.keys().hasAll([
@@ -149,117 +113,76 @@ service cloud.firestore {
           'frequency', 'startDate', 'status', 'paymentModel',
           'currentEventId', 'currentOccurrenceDate', 'createdAt'
         ]);
-
-      // Only the series owner (or super admin) may edit / close / delete it.
       allow update: if isAuthenticated() && (
         resource.data.ownerId == request.auth.uid || isSuperAdmin()
       );
-
       allow delete: if isAuthenticated() && (
         resource.data.ownerId == request.auth.uid || isSuperAdmin()
       );
     }
 
-    // -------------------------------------------------------------------------
-    // responses/{responseId}  — document id: {eventId}_{userId}
-    // -------------------------------------------------------------------------
-
     match /responses/{responseId} {
       function isResponseOwner() {
         return isAuthenticated() && resource.data.userId == request.auth.uid;
       }
-
       function isCreatingOwnResponse() {
         return isAuthenticated()
           && request.resource.data.userId == request.auth.uid
           && responseId == request.resource.data.eventId + '_' + request.auth.uid
           && validAttendanceStatus(request.resource.data.status);
       }
-
-      // Authenticated users may read responses (e.g. event attendance lists)
       allow get, list: if isAuthenticated();
-
       allow create: if isCreatingOwnResponse()
         && request.resource.data.keys().hasAll([
           'eventId', 'userId', 'status', 'createdAt'
         ]);
-
       allow update: if isResponseOwner()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.eventId == resource.data.eventId
         && validAttendanceStatus(request.resource.data.status);
-
       allow delete: if isResponseOwner();
     }
 
-    // -------------------------------------------------------------------------
-    // subscriptions/{subscriptionId}  — document id: {userId}_{YYYY-MM}
-    // Monthly subscriptions managed by organizers / super admins.
-    // -------------------------------------------------------------------------
-
     match /subscriptions/{subscriptionId} {
-      // Anyone signed in can read subscription status (to show "Abonament").
       allow get, list: if isAuthenticated();
-
-      // Only organizers / super admins manage subscriptions.
       allow create: if canCreateEvents()
         && request.resource.data.createdBy == request.auth.uid
         && subscriptionId == request.resource.data.userId + '_' + request.resource.data.month
         && request.resource.data.keys().hasAll([
           'userId', 'month', 'createdBy', 'createdAt'
         ]);
-
       allow delete: if canCreateEvents();
-
       allow update: if false;
     }
-
-    // -------------------------------------------------------------------------
-    // members/{memberId}  — document id: {groupId}_{userId}
-    // Persistent roster for a series (or standalone event). Anyone signed in
-    // with the link can join themselves; the group owner / super admin can
-    // remove anyone; members can remove themselves.
-    // -------------------------------------------------------------------------
 
     match /members/{memberId} {
       function isGroupOwner() {
         return isAuthenticated() && resource.data.ownerId == request.auth.uid;
       }
-
       function validMemberId() {
-        return memberId ==
-          request.resource.data.groupId + '_' + request.resource.data.userId;
+        return memberId == request.resource.data.groupId + '_' + request.resource.data.userId;
       }
-
       function isJoiningSelf() {
         return isAuthenticated()
           && request.resource.data.userId == request.auth.uid
           && validMemberId();
       }
-
-      // Group owner / super admin may add any existing user to the group.
       function isOwnerAddingMember() {
         return validMemberId() && (
           request.resource.data.ownerId == request.auth.uid || isSuperAdmin()
         );
       }
-
       allow get, list: if isAuthenticated();
-
       allow create: if isAuthenticated()
         && (isJoiningSelf() || isOwnerAddingMember())
         && request.resource.data.keys().hasAll([
           'groupId', 'groupType', 'ownerId', 'userId', 'joinedAt'
         ]);
-
-      // Allow self to refresh own name/photo; group owner may not need updates.
       allow update: if isAuthenticated()
         && resource.data.userId == request.auth.uid
         && request.resource.data.userId == resource.data.userId
         && request.resource.data.groupId == resource.data.groupId
         && request.resource.data.ownerId == resource.data.ownerId;
-
-      // Self-leave, group owner removal, or super admin.
       allow delete: if isAuthenticated() && (
         resource.data.userId == request.auth.uid
         || isGroupOwner()
@@ -267,9 +190,32 @@ service cloud.firestore {
       );
     }
 
-    // -------------------------------------------------------------------------
-    // Deny everything else
-    // -------------------------------------------------------------------------
+    match /playerCards/{cardId} {
+      allow get, list: if isAuthenticated();
+      allow create, update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /stageCards/{cardId} {
+      allow get, list: if isAuthenticated();
+      allow create, update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /stageVotes/{voteId} {
+      function validVoteId() {
+        return voteId == request.resource.data.groupId + '_' + request.resource.data.stageId + '_'
+          + request.resource.data.awardId + '_' + request.resource.data.voterUserId;
+      }
+      allow get, list: if isAuthenticated() && (isSuperAdmin() || resource.data.voterUserId == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.voterUserId == request.auth.uid
+        && validVoteId()
+        && request.resource.data.keys().hasAll([
+          'groupId', 'stageId', 'awardId', 'voterUserId', 'candidateUserId', 'createdAt'
+        ]);
+      allow update, delete: if false;
+    }
 
     match /{document=**} {
       allow read, write: if false;
