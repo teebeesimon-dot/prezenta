@@ -7,6 +7,7 @@ import AttendanceSection from "@/components/AttendanceSection";
 import DeleteEventButton from "@/components/DeleteEventButton";
 import MembersGroup from "@/components/MembersGroup";
 import OpenInGoogleMapsButton from "@/components/OpenInGoogleMapsButton";
+import PlayerCardSection from "@/components/PlayerCardSection";
 import SeriesPanel from "@/components/SeriesPanel";
 import ShareOnWhatsAppButton from "@/components/ShareOnWhatsAppButton";
 import TeamGenerator from "@/components/TeamGenerator";
@@ -96,6 +97,9 @@ export default function EventPageClient({ id }: EventPageClientProps) {
     registrationLeadUnit: event.registrationLeadUnit,
     registrationOpenTime: event.registrationOpenTime,
   });
+  const group = resolveGroup(event);
+  const isFootball = event.sport === "football";
+  const stageNumber = event.seriesIndex ?? 1;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
@@ -225,6 +229,10 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         </div>
       </div>
 
+      {isFootball && (
+        <PlayerCardSection groupId={group.groupId} />
+      )}
+
       {event.seriesId && (
         <SeriesPanel
           seriesId={event.seriesId}
@@ -235,7 +243,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
 
       <MembersGroup
         eventId={event.id}
-        {...resolveGroup(event)}
+        {...group}
         ownerId={event.ownerId}
         eventDate={event.date}
         pricePerHour={event.pricePerHour}
@@ -266,6 +274,12 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         teams={event.teams}
         isOwner={canManage}
       />
+
+      {isFootball && (
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          Etapa {stageNumber}
+        </p>
+      )}
     </div>
   );
 }
