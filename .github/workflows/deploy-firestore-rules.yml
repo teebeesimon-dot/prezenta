@@ -46,21 +46,6 @@ jobs:
           create_credentials_file: true
           export_environment_variables: true
 
-      - name: Set up Google Cloud CLI
-        uses: google-github-actions/setup-gcloud@v3
-
-      - name: Diagnose deployment identity and IAM
-        shell: bash
-        run: |
-          ACCOUNT="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | head -n 1)"
-          echo "Firebase deployment service account: $ACCOUNT"
-          echo "Testing whether this identity can inspect project IAM..."
-          if gcloud projects get-iam-policy "$FIREBASE_PROJECT_ID" --format='none()'; then
-            echo "Project IAM policy is readable by $ACCOUNT."
-          else
-            echo "::warning::$ACCOUNT cannot inspect or modify the project IAM policy from this workflow."
-          fi
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
