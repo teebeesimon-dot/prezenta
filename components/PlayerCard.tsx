@@ -17,6 +17,8 @@ interface PlayerCardProps {
 export default function PlayerCard({ card, compact = false }: PlayerCardProps) {
   const tier = getCardTier(card.overall);
   const isStage = "awardIds" in card;
+  const playerName = card.playerName ?? "Jucator";
+  const playerPhoto = card.playerPhoto ?? null;
   const awards = isStage ? card.awards : [];
   const stats = "pace" in card
     ? [
@@ -46,15 +48,15 @@ export default function PlayerCard({ card, compact = false }: PlayerCardProps) {
         </div>
 
         <div className="relative mt-2 aspect-[4/5] overflow-hidden rounded-2xl bg-black/10">
-          {card.playerPhoto ? (
-            <Image src={card.playerPhoto} alt={card.playerName} fill className="object-cover object-top" sizes="320px" />
+          {playerPhoto ? (
+            <Image src={playerPhoto} alt={playerName} fill className="object-cover object-top" sizes="320px" />
           ) : (
-            <div className="flex h-full items-end justify-center text-7xl font-black opacity-20">{card.playerName.slice(0, 1)}</div>
+            <div className="flex h-full items-end justify-center text-7xl font-black opacity-20">{playerName.slice(0, 1)}</div>
           )}
         </div>
 
         <div className="mt-3 text-center">
-          <div className="truncate text-xl font-black uppercase tracking-tight">{card.playerName}</div>
+          <div className="truncate text-xl font-black uppercase tracking-tight">{playerName}</div>
           {isStage && awards.length > 0 && (
             <div className="mt-2 flex flex-wrap justify-center gap-1">
               {awards.map((award) => (
