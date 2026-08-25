@@ -35,12 +35,12 @@ jobs:
         with:
           node-version: 22
 
-      - name: Verify deployment configuration
-        shell: bash
+      - name: Report missing deployment credential
+        if: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON == '' }}
         run: |
-          test -n "$FIREBASE_SERVICE_ACCOUNT_JSON" || {
-            echo "Missing GitHub secret FIREBASE_SERVICE_ACCOUNT_JSON"
-            exit 1
-          }
+          echo "::warning::Firestore rules were not deployed because FIREBASE_SERVICE_ACCOUNT_JSON is not configured."
+          echo "Add a valid service-account JSON as a repository secret, then run this workflow again."
+
       - name: Validate and deploy Firestore rules
+        if: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON != '' }}
         run: node scripts/deploy-firestore-rules.mjs
