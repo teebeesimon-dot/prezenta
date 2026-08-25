@@ -22,11 +22,18 @@ interface AdminStageAwardsProps {
   currentStageNumber?: number;
 }
 
-export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: AdminStageAwardsProps) {
+export default function AdminStageAwards({
+  groupId,
+  currentStageNumber = 1,
+  hideCardCreation = false,
+}: AdminStageAwardsProps & { hideCardCreation?: boolean }) {
   const { user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [stageNumber, setStageNumber] = useState(currentStageNumber);
-  const [selectedAwards, setSelectedAwards] = useState<string[]>(["mvp", "top_scorer"]);
+  const [selectedAwards, setSelectedAwards] = useState<string[]>([
+    "mvp",
+    "top_scorer",
+  ]);
   const [votingOpen, setVotingOpen] = useState(false);
   const [published, setPublished] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -44,23 +51,35 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
       try {
         const config = await getStageConfig(groupId, stageNumber);
         if (cancelled) return;
-        setSelectedAwards(config?.awardIds?.length ? config.awardIds : ["mvp", "top_scorer"]);
+        setSelectedAwards(
+          config?.awardIds?.length ? config.awardIds : ["mvp", "top_scorer"],
+        );
         setVotingOpen(config?.votingOpen ?? false);
         setPublished(config?.published ?? false);
         setResults({});
       } catch (error) {
         if (!cancelled) {
-          setMessage(reportPlayerCardsError(error, "Citirea configurației etapei", "stageConfigs"));
+          setMessage(
+            reportPlayerCardsError(
+              error,
+              "Citirea configurației etapei",
+              "stageConfigs",
+            ),
+          );
         }
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [groupId, stageNumber]);
 
   function toggleAward(id: string) {
     if (votingOpen || published) return;
     setSelectedAwards((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
     );
   }
 
@@ -69,12 +88,22 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
     setSaving(true);
     setMessage("");
     try {
-      await saveStageConfig({ groupId, stageNumber, awardIds: selectedAwards, votingOpen: true, published: false });
+      await saveStageConfig({
+        groupId,
+        stageNumber,
+        awardIds: selectedAwards,
+        votingOpen: true,
+        published: false,
+      });
       setVotingOpen(true);
       setPublished(false);
-      setMessage("Votarea este deschisa. Participantii o vor vedea pe pagina meciului.");
+      setMessage(
+        "Votarea este deschisa. Participantii o vor vedea pe pagina meciului.",
+      );
     } catch (error) {
-      setMessage(reportPlayerCardsError(error, "Deschiderea votării", "stageConfigs"));
+      setMessage(
+        reportPlayerCardsError(error, "Deschiderea votării", "stageConfigs"),
+      );
     } finally {
       setSaving(false);
     }
@@ -84,11 +113,19 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
     setSaving(true);
     setMessage("");
     try {
-      await saveStageConfig({ groupId, stageNumber, awardIds: selectedAwards, votingOpen: false, published: false });
+      await saveStageConfig({
+        groupId,
+        stageNumber,
+        awardIds: selectedAwards,
+        votingOpen: false,
+        published: false,
+      });
       setVotingOpen(false);
       setMessage("Votarea a fost inchisa.");
     } catch (error) {
-      setMessage(reportPlayerCardsError(error, "Închiderea votării", "stageConfigs"));
+      setMessage(
+        reportPlayerCardsError(error, "Închiderea votării", "stageConfigs"),
+      );
     } finally {
       setSaving(false);
     }
@@ -99,30 +136,39 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
     try {
       const stageVotes = await getStageVotes(groupId, stageId);
       const grouped: Record<string, StageAward[]> = {};
-    for (const awardId of selectedAwards) {
-      const award = awardOptions.find((item) => item.id === awardId);
-      if (!award) continue;
-      const byCandidate = new Map<string, number>();
-      stageVotes.filter((vote) => vote.awardId === awardId).forEach((vote) => {
-        byCandidate.set(vote.candidateUserId, (byCandidate.get(vote.candidateUserId) ?? 0) + 1);
-      });
-      grouped[awardId] = Array.from(byCandidate.entries())
-        .map(([candidateUserId, count]) => {
-          const member = members.find((item) => item.userId === candidateUserId);
-          return {
-            awardId,
-            label: award.label,
-            winnerUserId: candidateUserId,
-            winnerName: member?.userName ?? "Jucator",
-            winnerPhoto: member?.userPhoto ?? null,
-            votes: count,
-          };
-        })
-        .sort((a, b) => b.votes - a.votes);
-    }
+      for (const awardId of selectedAwards) {
+        const award = awardOptions.find((item) => item.id === awardId);
+        if (!award) continue;
+        const byCandidate = new Map<string, number>();
+        stageVotes
+          .filter((vote) => vote.awardId === awardId)
+          .forEach((vote) => {
+            byCandidate.set(
+              vote.candidateUserId,
+              (byCandidate.get(vote.candidateUserId) ?? 0) + 1,
+            );
+          });
+        grouped[awardId] = Array.from(byCandidate.entries())
+          .map(([candidateUserId, count]) => {
+            const member = members.find(
+              (item) => item.userId === candidateUserId,
+            );
+            return {
+              awardId,
+              label: award.label,
+              winnerUserId: candidateUserId,
+              winnerName: member?.userName ?? "Jucator",
+              winnerPhoto: member?.userPhoto ?? null,
+              votes: count,
+            };
+          })
+          .sort((a, b) => b.votes - a.votes);
+      }
       setResults(grouped);
     } catch (error) {
-      setMessage(reportPlayerCardsError(error, "Citirea rezultatelor", "stageVotes"));
+      setMessage(
+        reportPlayerCardsError(error, "Citirea rezultatelor", "stageVotes"),
+      );
     }
   }
 
@@ -138,9 +184,14 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
         const award = awardOptions.find((item) => item.id === awardId);
         if (!award) continue;
         const counts = new Map<string, number>();
-        stageVotes.filter((vote) => vote.awardId === awardId).forEach((vote) => {
-          counts.set(vote.candidateUserId, (counts.get(vote.candidateUserId) ?? 0) + 1);
-        });
+        stageVotes
+          .filter((vote) => vote.awardId === awardId)
+          .forEach((vote) => {
+            counts.set(
+              vote.candidateUserId,
+              (counts.get(vote.candidateUserId) ?? 0) + 1,
+            );
+          });
         const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
         const winner = sorted[0];
         if (!winner) continue;
@@ -153,7 +204,10 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
           winnerPhoto: member?.userPhoto ?? null,
           votes: winner[1],
         };
-        winnersByUser.set(winner[0], [...(winnersByUser.get(winner[0]) ?? []), awardResult]);
+        winnersByUser.set(winner[0], [
+          ...(winnersByUser.get(winner[0]) ?? []),
+          awardResult,
+        ]);
       }
 
       for (const [winnerUserId, awards] of winnersByUser) {
@@ -185,13 +239,27 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
         });
       }
 
-      await saveStageConfig({ groupId, stageNumber, awardIds: selectedAwards, votingOpen: false, published: true });
+      await saveStageConfig({
+        groupId,
+        stageNumber,
+        awardIds: selectedAwards,
+        votingOpen: false,
+        published: true,
+      });
       setPublished(true);
       setVotingOpen(false);
       await loadResults();
-      setMessage("Rezultatele au fost publicate si cardurile etapei au fost create.");
+      setMessage(
+        "Rezultatele au fost publicate si cardurile etapei au fost create.",
+      );
     } catch (error) {
-      setMessage(reportPlayerCardsError(error, "Publicarea premiilor", "stageCards / stageConfigs"));
+      setMessage(
+        reportPlayerCardsError(
+          error,
+          "Publicarea premiilor",
+          "stageCards / stageConfigs",
+        ),
+      );
     } finally {
       setSaving(false);
     }
@@ -201,7 +269,8 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
     <section className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
       <h3 className="text-lg font-bold text-foreground">Premiile etapei</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Selecteaza ce se voteaza. Votarea se face de participanti pe pagina meciului, nu din panoul de administrare.
+        Selecteaza ce se voteaza. Votarea se face de participanti pe pagina
+        meciului, nu din panoul de administrare.
       </p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -212,7 +281,9 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
             min={1}
             value={stageNumber}
             disabled={votingOpen || published}
-            onChange={(event) => setStageNumber(Number(event.target.value) || 1)}
+            onChange={(event) =>
+              setStageNumber(Number(event.target.value) || 1)
+            }
             className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 disabled:opacity-60"
           />
         </label>
@@ -220,7 +291,10 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
           <span className="text-sm font-medium text-foreground">Premii</span>
           <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
             {awardOptions.map((award) => (
-              <label key={award.id} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+              <label
+                key={award.id}
+                className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+              >
                 <input
                   type="checkbox"
                   checked={selectedAwards.includes(award.id)}
@@ -236,38 +310,69 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
 
       <div className="mt-5 flex flex-wrap gap-2">
         {!votingOpen && !published && (
-          <button type="button" onClick={openVoting} disabled={saving || selectedAwards.length === 0} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">
+          <button
+            type="button"
+            onClick={openVoting}
+            disabled={saving || selectedAwards.length === 0}
+            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50"
+          >
             Deschide votarea
           </button>
         )}
         {votingOpen && (
-          <button type="button" onClick={closeVoting} disabled={saving} className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-50">
+          <button
+            type="button"
+            onClick={closeVoting}
+            disabled={saving}
+            className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-50"
+          >
             Inchide votarea
           </button>
         )}
         {!votingOpen && (
-          <button type="button" onClick={loadResults} className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground">
+          <button
+            type="button"
+            onClick={loadResults}
+            className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground"
+          >
             Vezi rezultate
           </button>
         )}
-        {!votingOpen && !published && (
-          <button type="button" onClick={publishStageCards} disabled={saving} className="rounded-xl border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm font-bold text-primary disabled:opacity-50">
-            Publica premiile si cardurile
+        {!hideCardCreation && !votingOpen && !published && (
+          <button
+            type="button"
+            onClick={publishStageCards}
+            disabled={saving}
+            className="rounded-xl border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm font-bold text-primary disabled:opacity-50"
+          >
+            Publică premiile și cardurile
           </button>
         )}
       </div>
 
-      {published && <p className="mt-4 text-sm font-semibold text-primary">Etapa este publicata. Cardurile raman in history dupa trecerea la etapa urmatoare.</p>}
-      {message && <p className="mt-4 text-sm text-muted-foreground">{message}</p>}
+      {published && (
+        <p className="mt-4 text-sm font-semibold text-primary">
+          Etapa este publicata. Cardurile raman in history dupa trecerea la
+          etapa urmatoare.
+        </p>
+      )}
+      {message && (
+        <p className="mt-4 text-sm text-muted-foreground">{message}</p>
+      )}
 
       {Object.keys(results).length > 0 && (
         <div className="mt-5 space-y-4">
           {Object.entries(results).map(([awardId, entries]) => (
             <div key={awardId} className="rounded-xl border border-border p-4">
-              <div className="font-bold text-foreground">{awardOptions.find((item) => item.id === awardId)?.label}</div>
+              <div className="font-bold text-foreground">
+                {awardOptions.find((item) => item.id === awardId)?.label}
+              </div>
               <div className="mt-2 space-y-1 text-sm">
                 {entries.map((entry) => (
-                  <div key={entry.winnerUserId} className="flex items-center justify-between">
+                  <div
+                    key={entry.winnerUserId}
+                    className="flex items-center justify-between"
+                  >
                     <span>{entry.winnerName}</span>
                     <span className="font-bold">{entry.votes}</span>
                   </div>
@@ -282,7 +387,13 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
 }
 
 async function getExistingCard(groupId: string, userId: string) {
-  const snap = await getDocs(query(collection(db, "playerCards"), where("groupId", "==", groupId), where("userId", "==", userId)));
+  const snap = await getDocs(
+    query(
+      collection(db, "playerCards"),
+      where("groupId", "==", groupId),
+      where("userId", "==", userId),
+    ),
+  );
   if (snap.empty) return null;
   return hydratePlayerCard(snap.docs[0].data() as PlayerCardData);
 }

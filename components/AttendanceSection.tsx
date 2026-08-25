@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  collection,
-  doc,
-  onSnapshot,
-  query,
-  where,
-} from "firebase/firestore";
+import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { db } from "@/lib/firebase";
@@ -15,15 +9,8 @@ import {
   findUserGoingPosition,
   parseTimestamp,
 } from "@/lib/going-list";
-import {
-  computePerPlayer,
-  computeTotalCost,
-  formatLei,
-} from "@/lib/pricing";
-import {
-  isPaid,
-  setPaymentStatus,
-} from "@/lib/payments";
+import { computePerPlayer, computeTotalCost, formatLei } from "@/lib/pricing";
+import { isPaid, setPaymentStatus } from "@/lib/payments";
 import {
   computeRegistrationOpensAt,
   formatCountdown,
@@ -57,6 +44,7 @@ interface AttendanceSectionProps {
   registrationLeadValue?: number;
   registrationLeadUnit?: "hours" | "days";
   registrationOpenTime?: string;
+  view?: "all" | "response" | "lists";
 }
 
 const MAYBE_CONFIG = {
@@ -90,7 +78,7 @@ function getParticipantPhoto(data: Record<string, unknown>): string | null {
 
 function sortByName(entries: ParticipantEntry[]): ParticipantEntry[] {
   return [...entries].sort((a, b) =>
-    a.name.localeCompare(b.name, "ro", { sensitivity: "base" })
+    a.name.localeCompare(b.name, "ro", { sensitivity: "base" }),
   );
 }
 
@@ -215,16 +203,22 @@ export default function AttendanceSection({
   registrationLeadValue,
   registrationLeadUnit,
   registrationOpenTime,
+  view = "all",
 }: AttendanceSectionProps) {
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const [confirmed, setConfirmed] = useState<RankedParticipantEntry[]>([]);
   const [waitlist, setWaitlist] = useState<RankedParticipantEntry[]>([]);
   const [maybe, setMaybe] = useState<ParticipantEntry[]>([]);
   const [notGoing, setNotGoing] = useState<ParticipantEntry[]>([]);
-  const [currentStatus, setCurrentStatus] = useState<AttendanceStatus | null>(null);
-  const [userPosition, setUserPosition] = useState<RankedParticipantEntry | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<AttendanceStatus | null>(
+    null,
+  );
+  const [userPosition, setUserPosition] =
+    useState<RankedParticipantEntry | null>(null);
   const [submitting, setSubmitting] = useState<AttendanceStatus | null>(null);
-  const [payments, setPayments] = useState<Record<string, "paid" | "unpaid">>({});
+  const [payments, setPayments] = useState<Record<string, "paid" | "unpaid">>(
+    {},
+  );
   const [subscriptions, setSubscriptions] = useState<SubscriptionMap>({});
   const [now, setNow] = useState(() => Date.now());
   const [confirmedExpanded, setConfirmedExpanded] = useState(false);
@@ -258,10 +252,10 @@ export default function AttendanceSection({
       (snap) => {
         const data = snap.data();
         setPayments(
-          (data?.payments as Record<string, "paid" | "unpaid">) ?? {}
+          (data?.payments as Record<string, "paid" | "unpaid">) ?? {},
         );
       },
-      () => setPayments({})
+      () => setPayments({}),
     );
     return () => unsubscribe();
   }, [eventId, user]);
@@ -269,72 +263,78 @@ export default function AttendanceSection({
   // Live monthly subscriptions for the event's month.
   useEffect(() => {
     if (!user || !monthKey) return;
-    const unsubscribe = subscribeToMonthSubscriptions(monthKey, setSubscriptions);
+    const unsubscribe = subscribeToMonthSubscriptions(
+      monthKey,
+      setSubscriptions,
+    );
     return () => unsubscribe();
   }, [monthKey, user]);
 
   useEffect(() => {
     const q = query(
       collection(db, "responses"),
-      where("eventId", "==", eventId)
+      where("eventId", "==", eventId),
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const goingInputs: {
-        userId: string;
-        name: string;
-        photoURL: string | null;
-        goingRegisteredAt: number;
-      }[] = [];
-      const maybeMap = new Map<string, ParticipantEntry>();
-      const notGoingMap = new Map<string, ParticipantEntry>();
-      let userStatus: AttendanceStatus | null = null;
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const goingInputs: {
+          userId: string;
+          name: string;
+          photoURL: string | null;
+          goingRegisteredAt: number;
+        }[] = [];
+        const maybeMap = new Map<string, ParticipantEntry>();
+        const notGoingMap = new Map<string, ParticipantEntry>();
+        let userStatus: AttendanceStatus | null = null;
 
-      snapshot.docs.forEach((docSnap) => {
-        const data = docSnap.data();
-        const status = data.status as AttendanceStatus;
-        const userId = (data.userId as string) || docSnap.id;
-        const entry: ParticipantEntry = {
-          userId,
-          name: getParticipantName(data),
-          photoURL: getParticipantPhoto(data),
-        };
-
-        if (status === "vin") {
-          goingInputs.push({
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data();
+          const status = data.status as AttendanceStatus;
+          const userId = (data.userId as string) || docSnap.id;
+          const entry: ParticipantEntry = {
             userId,
-            name: entry.name,
-            photoURL: entry.photoURL,
-            goingRegisteredAt: parseTimestamp(
-              data.goingRegisteredAt ?? data.createdAt
-            ),
-          });
-        } else if (status === "poate") {
-          maybeMap.set(userId, entry);
-        } else if (status === "nu_vin") {
-          notGoingMap.set(userId, entry);
-        }
+            name: getParticipantName(data),
+            photoURL: getParticipantPhoto(data),
+          };
 
-        if (user && data.userId === user.uid) {
-          userStatus = status;
-        }
-      });
+          if (status === "vin") {
+            goingInputs.push({
+              userId,
+              name: entry.name,
+              photoURL: entry.photoURL,
+              goingRegisteredAt: parseTimestamp(
+                data.goingRegisteredAt ?? data.createdAt,
+              ),
+            });
+          } else if (status === "poate") {
+            maybeMap.set(userId, entry);
+          } else if (status === "nu_vin") {
+            notGoingMap.set(userId, entry);
+          }
 
-      const lists = computeGoingLists(goingInputs, maxParticipants);
-      setConfirmed(lists.confirmed);
-      setWaitlist(lists.waitlist);
-      setMaybe(sortByName(Array.from(maybeMap.values())));
-      setNotGoing(sortByName(Array.from(notGoingMap.values())));
-      setCurrentStatus(userStatus);
-      setUserPosition(
-        user && userStatus === "vin"
-          ? findUserGoingPosition(user.uid, lists)
-          : null
-      );
-    },
-    // Ignore transient permission errors fired before the auth token attaches;
-    // the listener reconnects automatically once auth is ready.
-    () => {});
+          if (user && data.userId === user.uid) {
+            userStatus = status;
+          }
+        });
+
+        const lists = computeGoingLists(goingInputs, maxParticipants);
+        setConfirmed(lists.confirmed);
+        setWaitlist(lists.waitlist);
+        setMaybe(sortByName(Array.from(maybeMap.values())));
+        setNotGoing(sortByName(Array.from(notGoingMap.values())));
+        setCurrentStatus(userStatus);
+        setUserPosition(
+          user && userStatus === "vin"
+            ? findUserGoingPosition(user.uid, lists)
+            : null,
+        );
+      },
+      // Ignore transient permission errors fired before the auth token attaches;
+      // the listener reconnects automatically once auth is ready.
+      () => {},
+    );
 
     return () => unsubscribe();
   }, [eventId, maxParticipants, user]);
@@ -354,7 +354,7 @@ export default function AttendanceSection({
   async function handleToggleSubscription(
     targetUserId: string,
     targetName: string,
-    subscribed: boolean
+    subscribed: boolean,
   ) {
     if (!user || !monthKey) return;
     await setSubscription(targetUserId, monthKey, subscribed, {
@@ -375,7 +375,7 @@ export default function AttendanceSection({
         user.uid,
         user.displayName ?? user.email ?? "User",
         user.photoURL,
-        status
+        status,
       );
     } finally {
       setSubmitting(null);
@@ -395,7 +395,9 @@ export default function AttendanceSection({
   if (!user) {
     return (
       <section className="mt-8">
-        <h2 className="mb-4 text-xl font-bold tracking-tight text-foreground">Prezență</h2>
+        <h2 className="mb-4 text-xl font-bold tracking-tight text-foreground">
+          Prezență
+        </h2>
         <div className="rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
           <p className="text-muted-foreground">
             Conectează-te cu Google pentru a-ți confirma prezența.
@@ -414,263 +416,278 @@ export default function AttendanceSection({
 
   return (
     <section className="mt-8">
-      <h2 className="mb-4 text-xl font-bold tracking-tight text-foreground">Prezență</h2>
+      <h2 className="mb-4 text-xl font-bold tracking-tight text-foreground">
+        Prezență
+      </h2>
 
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-        <div className="mb-4 flex items-center gap-3">
-          <ParticipantAvatar
-            name={user.displayName ?? "User"}
-            photoURL={user.photoURL}
-          />
-          <div>
-            <p className="font-medium text-card-foreground">{user.displayName}</p>
-            {currentStatus === "vin" && userPosition && (
-              <p className="text-sm text-muted-foreground">
-                {userPosition.isWaitlisted
-                  ? `Listă de așteptare: ${userPosition.positionLabel}`
-                  : `Confirmat: ${userPosition.positionLabel}`}
+      {view !== "lists" && (
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-3">
+            <ParticipantAvatar
+              name={user.displayName ?? "User"}
+              photoURL={user.photoURL}
+            />
+            <div>
+              <p className="font-medium text-card-foreground">
+                {user.displayName}
               </p>
-            )}
-            {currentStatus && currentStatus !== "vin" && (
-              <p className="text-sm text-muted-foreground">
-                Răspunsul tău:{" "}
-                {currentStatus === "poate" ? "Poate" : "Nu vin"}
+              {currentStatus === "vin" && userPosition && (
+                <p className="text-sm text-muted-foreground">
+                  {userPosition.isWaitlisted
+                    ? `Listă de așteptare: ${userPosition.positionLabel}`
+                    : `Confirmat: ${userPosition.positionLabel}`}
+                </p>
+              )}
+              {currentStatus && currentStatus !== "vin" && (
+                <p className="text-sm text-muted-foreground">
+                  Răspunsul tău:{" "}
+                  {currentStatus === "poate" ? "Poate" : "Nu vin"}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {!registrationOpen && registrationOpensAt && (
+            <div className="mb-4 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3">
+              <p className="text-sm font-semibold text-foreground">
+                Înscrierile nu sunt încă deschise
               </p>
-            )}
+              <p className="mt-1 text-sm text-muted-foreground">
+                Se deschid {formatRegistrationOpensAt(registrationOpensAt)}.
+              </p>
+              <p className="mt-2 text-2xl font-extrabold tabular-nums tracking-tight text-foreground">
+                {formatCountdown(registrationOpensAt.getTime() - now)}
+              </p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            <button
+              type="button"
+              disabled={submitting !== null || !registrationOpen}
+              onClick={() => handleResponse("vin")}
+              className={`rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
+                currentStatus === "vin"
+                  ? "ring-2 ring-offset-2 ring-offset-card ring-ring " +
+                    VIN_BUTTON_CLASS
+                  : VIN_BUTTON_CLASS
+              }`}
+            >
+              {submitting === "vin" ? "..." : "Vin"}
+            </button>
+            <button
+              type="button"
+              disabled={submitting !== null || !registrationOpen}
+              onClick={() => handleResponse("poate")}
+              className={`rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
+                currentStatus === "poate"
+                  ? "ring-2 ring-offset-2 ring-offset-card ring-ring " +
+                    MAYBE_CONFIG.buttonClass
+                  : MAYBE_CONFIG.buttonClass
+              }`}
+            >
+              {submitting === "poate" ? "..." : MAYBE_CONFIG.label}
+            </button>
+            <button
+              type="button"
+              disabled={submitting !== null || !registrationOpen}
+              onClick={() => handleResponse("nu_vin")}
+              className={`rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
+                currentStatus === "nu_vin"
+                  ? "ring-2 ring-offset-2 ring-offset-card ring-ring " +
+                    NOT_GOING_CONFIG.buttonClass
+                  : NOT_GOING_CONFIG.buttonClass
+              }`}
+            >
+              {submitting === "nu_vin" ? "..." : NOT_GOING_CONFIG.label}
+            </button>
           </div>
         </div>
+      )}
 
-        {!registrationOpen && registrationOpensAt && (
-          <div className="mb-4 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3">
-            <p className="text-sm font-semibold text-foreground">
-              Înscrierile nu sunt încă deschise
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Se deschid {formatRegistrationOpensAt(registrationOpensAt)}.
-            </p>
-            <p className="mt-2 text-2xl font-extrabold tabular-nums tracking-tight text-foreground">
-              {formatCountdown(registrationOpensAt.getTime() - now)}
-            </p>
-          </div>
-        )}
-
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          <button
-            type="button"
-            disabled={submitting !== null || !registrationOpen}
-            onClick={() => handleResponse("vin")}
-            className={`rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
-              currentStatus === "vin"
-                ? "ring-2 ring-offset-2 ring-offset-card ring-ring " + VIN_BUTTON_CLASS
-                : VIN_BUTTON_CLASS
+      {view !== "response" && (
+        <div className="mt-6 flex flex-col gap-4">
+          <div
+            className={`rounded-2xl border p-4 ${
+              paymentModel === "monthly"
+                ? "border-accent/30 bg-accent/5"
+                : "border-primary/30 bg-primary/5"
             }`}
           >
-            {submitting === "vin" ? "..." : "Vin"}
-          </button>
-          <button
-            type="button"
-            disabled={submitting !== null || !registrationOpen}
-            onClick={() => handleResponse("poate")}
-            className={`rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
-              currentStatus === "poate"
-                ? "ring-2 ring-offset-2 ring-offset-card ring-ring " + MAYBE_CONFIG.buttonClass
-                : MAYBE_CONFIG.buttonClass
-            }`}
-          >
-            {submitting === "poate" ? "..." : MAYBE_CONFIG.label}
-          </button>
-          <button
-            type="button"
-            disabled={submitting !== null || !registrationOpen}
-            onClick={() => handleResponse("nu_vin")}
-            className={`rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
-              currentStatus === "nu_vin"
-                ? "ring-2 ring-offset-2 ring-offset-card ring-ring " + NOT_GOING_CONFIG.buttonClass
-                : NOT_GOING_CONFIG.buttonClass
-            }`}
-          >
-            {submitting === "nu_vin" ? "..." : NOT_GOING_CONFIG.label}
-          </button>
-        </div>
-      </div>
+            <button
+              type="button"
+              onClick={() => setConfirmedExpanded((value) => !value)}
+              aria-expanded={confirmedExpanded}
+              className="flex w-full flex-wrap items-start justify-between gap-3 text-left"
+            >
+              <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                <ChevronIcon
+                  className={`h-4 w-4 shrink-0 transition-transform ${
+                    confirmedExpanded ? "rotate-180" : ""
+                  }`}
+                />
+                Confirmați ({confirmed.length}/{maxParticipants})
+              </span>
 
-      <div className="mt-6 flex flex-col gap-4">
-        <div
-          className={`rounded-2xl border p-4 ${
-            paymentModel === "monthly"
-              ? "border-accent/30 bg-accent/5"
-              : "border-primary/30 bg-primary/5"
-          }`}
-        >
-          <button
-            type="button"
-            onClick={() => setConfirmedExpanded((value) => !value)}
-            aria-expanded={confirmedExpanded}
-            className="flex w-full flex-wrap items-start justify-between gap-3 text-left"
-          >
-            <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              <ChevronIcon
-                className={`h-4 w-4 shrink-0 transition-transform ${
-                  confirmedExpanded ? "rotate-180" : ""
-                }`}
-              />
-              Confirmați ({confirmed.length}/{maxParticipants})
-            </span>
+              {paymentModel === "monthly" ? (
+                <p className="text-right text-sm text-muted-foreground">
+                  {confirmed.filter((p) => subscriptions[p.userId]).length} din{" "}
+                  {confirmed.length} au abonament
+                  {monthKey ? ` · ${monthLabel(monthKey)}` : ""}
+                </p>
+              ) : totalCost > 0 ? (
+                <div className="text-right text-sm text-muted-foreground">
+                  <p className="text-lg font-extrabold tracking-tight text-foreground">
+                    {payers.length > 0
+                      ? formatLei(perPlayer)
+                      : formatLei(totalCost)}
+                    <span className="ml-1 text-xs font-medium text-muted-foreground">
+                      {payers.length > 0 ? "/ jucător" : "cost total"}
+                    </span>
+                  </p>
+                  <p className="mt-0.5">
+                    Strâns:{" "}
+                    <span className="font-semibold text-primary">
+                      {formatLei(collected)}
+                    </span>{" "}
+                    / {formatLei(perPlayer * payers.length)} · Teren{" "}
+                    {formatLei(totalCost)}
+                  </p>
+                </div>
+              ) : null}
+            </button>
 
-            {paymentModel === "monthly" ? (
-              <p className="text-right text-sm text-muted-foreground">
-                {confirmed.filter((p) => subscriptions[p.userId]).length} din{" "}
-                {confirmed.length} au abonament
-                {monthKey ? ` · ${monthLabel(monthKey)}` : ""}
+            {!confirmedExpanded ? (
+              <p className="mt-3 text-sm font-medium text-primary">
+                Vezi lista jucătorilor confirmați
               </p>
-            ) : totalCost > 0 ? (
-              <div className="text-right text-sm text-muted-foreground">
-                <p className="text-lg font-extrabold tracking-tight text-foreground">
-                  {payers.length > 0 ? formatLei(perPlayer) : formatLei(totalCost)}
-                  <span className="ml-1 text-xs font-medium text-muted-foreground">
-                    {payers.length > 0 ? "/ jucător" : "cost total"}
-                  </span>
-                </p>
-                <p className="mt-0.5">
-                  Strâns:{" "}
-                  <span className="font-semibold text-primary">
-                    {formatLei(collected)}
-                  </span>{" "}
-                  / {formatLei(perPlayer * payers.length)} · Teren{" "}
-                  {formatLei(totalCost)}
-                </p>
-              </div>
-            ) : null}
-          </button>
-
-          {!confirmedExpanded ? (
-            <p className="mt-3 text-sm font-medium text-primary">
-              Vezi lista jucătorilor confirmați
-            </p>
-          ) : confirmed.length === 0 ? (
-            <p className="mt-3 text-sm text-muted-foreground">
-              Niciun jucător confirmat încă.
-            </p>
-          ) : (
-            <ul className="mt-3 divide-y divide-border/60 border-t border-border/60">
-              {confirmed.map((player) => {
-                const subscribed = Boolean(subscriptions[player.userId]);
-                const paid = isPaid(payments, player.userId);
-                return (
-                  <li
-                    key={player.userId}
-                    className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:gap-3"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="w-7 shrink-0 text-xs font-bold text-primary">
-                        {player.positionLabel}
-                      </span>
-                      <ParticipantAvatar
-                        name={player.name}
-                        photoURL={player.photoURL}
-                      />
-                      <span className="min-w-0 flex-1 break-words text-sm font-medium text-foreground sm:truncate">
-                        {player.name}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 pl-10 sm:shrink-0 sm:flex-nowrap sm:justify-end sm:pl-0">
-                      {paymentModel === "monthly" ? (
-                        subscribed ? (
-                          <span className="rounded-full bg-accent/20 px-2.5 py-1 text-xs font-medium text-accent-foreground">
-                            Abonat
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                            Fără abonament
-                          </span>
-                        )
-                      ) : subscribed ? (
-                        <span className="rounded-full bg-accent/20 px-2.5 py-1 text-xs font-medium text-accent-foreground">
-                          Abonament
+            ) : confirmed.length === 0 ? (
+              <p className="mt-3 text-sm text-muted-foreground">
+                Niciun jucător confirmat încă.
+              </p>
+            ) : (
+              <ul className="mt-3 divide-y divide-border/60 border-t border-border/60">
+                {confirmed.map((player) => {
+                  const subscribed = Boolean(subscriptions[player.userId]);
+                  const paid = isPaid(payments, player.userId);
+                  return (
+                    <li
+                      key={player.userId}
+                      className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:gap-3"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="w-7 shrink-0 text-xs font-bold text-primary">
+                          {player.positionLabel}
                         </span>
-                      ) : totalCost > 0 ? (
-                        canManage ? (
+                        <ParticipantAvatar
+                          name={player.name}
+                          photoURL={player.photoURL}
+                        />
+                        <span className="min-w-0 flex-1 break-words text-sm font-medium text-foreground sm:truncate">
+                          {player.name}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 pl-10 sm:shrink-0 sm:flex-nowrap sm:justify-end sm:pl-0">
+                        {paymentModel === "monthly" ? (
+                          subscribed ? (
+                            <span className="rounded-full bg-accent/20 px-2.5 py-1 text-xs font-medium text-accent-foreground">
+                              Abonat
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                              Fără abonament
+                            </span>
+                          )
+                        ) : subscribed ? (
+                          <span className="rounded-full bg-accent/20 px-2.5 py-1 text-xs font-medium text-accent-foreground">
+                            Abonament
+                          </span>
+                        ) : totalCost > 0 ? (
+                          canManage ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleTogglePaid(player.userId, !paid)
+                              }
+                              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                                paid
+                                  ? "bg-primary text-primary-foreground"
+                                  : "border border-border bg-background text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              {paid
+                                ? `Plătit · ${formatLei(perPlayer)}`
+                                : "Neplătit"}
+                            </button>
+                          ) : (
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                paid
+                                  ? "bg-primary/15 text-primary"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {paid ? "Plătit" : formatLei(perPlayer)}
+                            </span>
+                          )
+                        ) : null}
+
+                        {canManage && monthKey && (
                           <button
                             type="button"
                             onClick={() =>
-                              handleTogglePaid(player.userId, !paid)
+                              handleToggleSubscription(
+                                player.userId,
+                                player.name,
+                                !subscribed,
+                              )
                             }
-                            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                              paid
-                                ? "bg-primary text-primary-foreground"
-                                : "border border-border bg-background text-muted-foreground hover:text-foreground"
-                            }`}
+                            className="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+                            title={`Abonament ${monthKey ? monthLabel(monthKey) : ""}`}
                           >
-                            {paid ? `Plătit · ${formatLei(perPlayer)}` : "Neplătit"}
+                            {subscribed ? "Anulează abonament" : "Abonează"}
                           </button>
-                        ) : (
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                              paid
-                                ? "bg-primary/15 text-primary"
-                                : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {paid ? "Plătit" : formatLei(perPlayer)}
-                          </span>
-                        )
-                      ) : null}
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
 
-                      {canManage && monthKey && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleToggleSubscription(
-                              player.userId,
-                              player.name,
-                              !subscribed
-                            )
-                          }
-                          className="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"
-                          title={`Abonament ${monthKey ? monthLabel(monthKey) : ""}`}
-                        >
-                          {subscribed ? "Anulează abonament" : "Abonează"}
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+            {confirmedExpanded && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                {paymentModel === "monthly"
+                  ? "Abonamentul e global pe lună: acoperă toate jocurile seriei din luna respectivă."
+                  : canManage
+                    ? `Bifează cine a plătit. Abonații lunii ${
+                        monthKey ? monthLabel(monthKey) : ""
+                      } sunt acoperiți și excluși din împărțeală.`
+                    : "Suma per jucător se recalculează automat pe măsură ce se confirmă participanții."}
+              </p>
+            )}
+          </div>
 
-          {confirmedExpanded && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              {paymentModel === "monthly"
-                ? "Abonamentul e global pe lună: acoperă toate jocurile seriei din luna respectivă."
-                : canManage
-                  ? `Bifează cine a plătit. Abonații lunii ${
-                      monthKey ? monthLabel(monthKey) : ""
-                    } sunt acoperiți și excluși din împărțeală.`
-                  : "Suma per jucător se recalculează automat pe măsură ce se confirmă participanții."}
-            </p>
-          )}
+          <RankedParticipantList
+            title={`Listă de așteptare (${waitlist.length})`}
+            participants={waitlist}
+            className="border-accent/30 bg-accent/5"
+            emptyMessage="Nimeni pe lista de așteptare."
+          />
+          <SimpleParticipantList
+            title={MAYBE_CONFIG.groupTitle}
+            count={maybe.length}
+            participants={maybe}
+            className={MAYBE_CONFIG.listClass}
+          />
+          <SimpleParticipantList
+            title={NOT_GOING_CONFIG.groupTitle}
+            count={notGoing.length}
+            participants={notGoing}
+            className={NOT_GOING_CONFIG.listClass}
+          />
         </div>
-
-        <RankedParticipantList
-          title={`Listă de așteptare (${waitlist.length})`}
-          participants={waitlist}
-          className="border-accent/30 bg-accent/5"
-          emptyMessage="Nimeni pe lista de așteptare."
-        />
-        <SimpleParticipantList
-          title={MAYBE_CONFIG.groupTitle}
-          count={maybe.length}
-          participants={maybe}
-          className={MAYBE_CONFIG.listClass}
-        />
-        <SimpleParticipantList
-          title={NOT_GOING_CONFIG.groupTitle}
-          count={notGoing.length}
-          participants={notGoing}
-          className={NOT_GOING_CONFIG.listClass}
-        />
-      </div>
+      )}
     </section>
   );
 }

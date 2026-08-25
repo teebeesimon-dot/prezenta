@@ -5,12 +5,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import AttendanceSection from "@/components/AttendanceSection";
 import DeleteEventButton from "@/components/DeleteEventButton";
-import MembersGroup from "@/components/MembersGroup";
 import OpenInGoogleMapsButton from "@/components/OpenInGoogleMapsButton";
-import PlayerCardSection from "@/components/PlayerCardSection";
 import SeriesPanel from "@/components/SeriesPanel";
 import ShareOnWhatsAppButton from "@/components/ShareOnWhatsAppButton";
-import TeamGenerator from "@/components/TeamGenerator";
 import { useAuth } from "@/contexts/AuthProvider";
 import { db } from "@/lib/firebase";
 import { formatEventDate, mapFirestoreEvent } from "@/lib/events";
@@ -19,7 +16,6 @@ import {
   computeRegistrationOpensAt,
   formatRegistrationOpensAt,
 } from "@/lib/registration";
-import { resolveGroup } from "@/lib/members";
 import { SPORT_LABELS } from "@/lib/labels";
 import {
   computeTotalCost,
@@ -75,10 +71,12 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         // permission-denied can happen transiently right after sign-in while
         // the auth token hasn't propagated to Firestore yet. Surface it
         // distinctly so we don't tell the user the event doesn't exist.
-        setPermissionDenied((error as { code?: string })?.code === "permission-denied");
+        setPermissionDenied(
+          (error as { code?: string })?.code === "permission-denied",
+        );
         setEvent(null);
         setLoaded(true);
-      }
+      },
     );
 
     return () => unsubscribe();
@@ -101,9 +99,12 @@ export default function EventPageClient({ id }: EventPageClientProps) {
   if (!event && !user) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-foreground">Autentificare necesară</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          Autentificare necesară
+        </h1>
         <p className="mt-2 text-muted-foreground">
-          Conectează-te cu Google (butonul din header) pentru a vedea acest eveniment.
+          Conectează-te cu Google (butonul din header) pentru a vedea acest
+          eveniment.
         </p>
       </div>
     );
@@ -112,7 +113,9 @@ export default function EventPageClient({ id }: EventPageClientProps) {
   if (!event && permissionDenied) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-foreground">Se finalizează autentificarea...</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          Se finalizează autentificarea...
+        </h1>
         <p className="mt-2 text-muted-foreground">
           Reîncarcă pagina în câteva secunde dacă evenimentul nu apare.
         </p>
@@ -123,7 +126,9 @@ export default function EventPageClient({ id }: EventPageClientProps) {
   if (!event) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-foreground">Eveniment negăsit</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          Eveniment negăsit
+        </h1>
         <p className="mt-2 text-muted-foreground">
           Acest eveniment nu există sau a fost șters.
         </p>
@@ -145,7 +150,6 @@ export default function EventPageClient({ id }: EventPageClientProps) {
     registrationLeadUnit: event.registrationLeadUnit,
     registrationOpenTime: event.registrationOpenTime,
   });
-  const group = resolveGroup(event);
   const isFootball = event.sport === "football";
   const stageNumber = event.seriesIndex ?? 1;
 
@@ -181,7 +185,9 @@ export default function EventPageClient({ id }: EventPageClientProps) {
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Data
             </dt>
-            <dd className="mt-1 text-card-foreground">{formatEventDate(event.date)}</dd>
+            <dd className="mt-1 text-card-foreground">
+              {formatEventDate(event.date)}
+            </dd>
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -209,7 +215,9 @@ export default function EventPageClient({ id }: EventPageClientProps) {
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Participanți maximi
             </dt>
-            <dd className="mt-1 text-card-foreground">{event.maxParticipants}</dd>
+            <dd className="mt-1 text-card-foreground">
+              {event.maxParticipants}
+            </dd>
           </div>
           {registrationOpensAt ? (
             <div>
@@ -235,8 +243,8 @@ export default function EventPageClient({ id }: EventPageClientProps) {
                       {formatLei(
                         computeTotalCost(
                           event.pricePerHour,
-                          event.durationMinutes
-                        )
+                          event.durationMinutes,
+                        ),
                       )}
                     </span>
                   </span>
@@ -249,7 +257,10 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         <div className="mt-6 border-t border-border pt-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <ShareOnWhatsAppButton event={event} className="w-full sm:w-auto" />
-            <OpenInGoogleMapsButton event={event} className="w-full sm:w-auto" />
+            <OpenInGoogleMapsButton
+              event={event}
+              className="w-full sm:w-auto"
+            />
             <button
               type="button"
               onClick={handleCopyLink}
@@ -266,7 +277,10 @@ export default function EventPageClient({ id }: EventPageClientProps) {
               </Link>
             )}
             {canManage && !event.seriesId && (
-              <DeleteEventButton eventId={event.id} className="w-full sm:w-auto" />
+              <DeleteEventButton
+                eventId={event.id}
+                className="w-full sm:w-auto"
+              />
             )}
           </div>
           {copied && (
@@ -277,9 +291,25 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         </div>
       </div>
 
-      {isFootball && (
-        <PlayerCardSection groupId={group.groupId} />
-      )}
+      <nav
+        aria-label="Secțiuni eveniment"
+        className="mt-6 flex flex-wrap gap-2"
+      >
+        {[
+          ["group", "Grup"],
+          ["confirmed", "Confirmați"],
+          ["teams", "Echipe"],
+          ...(isFootball ? [["cards", "Player Cards"]] : []),
+        ].map(([path, label]) => (
+          <Link
+            key={path}
+            href={`/event/${event.id}/${path}`}
+            className="inline-flex items-center rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-card-foreground shadow-sm transition hover:border-primary/40 hover:text-primary active:scale-[0.98]"
+          >
+            {label}
+          </Link>
+        ))}
+      </nav>
 
       {event.seriesId && (
         <SeriesPanel
@@ -288,17 +318,6 @@ export default function EventPageClient({ id }: EventPageClientProps) {
           isOwner={canManage}
         />
       )}
-
-      <MembersGroup
-        eventId={event.id}
-        {...group}
-        ownerId={event.ownerId}
-        eventDate={event.date}
-        pricePerHour={event.pricePerHour}
-        durationMinutes={event.durationMinutes}
-        paymentModel={event.paymentModel}
-        canManage={canManage}
-      />
 
       <AttendanceSection
         eventId={event.id}
@@ -313,14 +332,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         registrationLeadValue={event.registrationLeadValue}
         registrationLeadUnit={event.registrationLeadUnit}
         registrationOpenTime={event.registrationOpenTime}
-      />
-
-      <TeamGenerator
-        eventId={event.id}
-        maxParticipants={event.maxParticipants}
-        footballFormat={event.footballFormat}
-        teams={event.teams}
-        isOwner={canManage}
+        view="response"
       />
 
       {isFootball && (

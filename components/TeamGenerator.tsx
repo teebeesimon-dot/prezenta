@@ -9,11 +9,13 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import PlayerCard from "@/components/PlayerCard";
 import { db } from "@/lib/firebase";
 import { computeGoingLists, parseTimestamp } from "@/lib/going-list";
 import { getDefaultFootballFormat } from "@/lib/football-formats";
 import { generateRandomTeams } from "@/lib/teams";
+import { subscribePlayerCards, type PlayerCardData } from "@/lib/player-cards";
 import type { GeneratedTeams, ParticipantEntry } from "@/lib/types";
 
 interface TeamGeneratorProps {
@@ -22,6 +24,30 @@ interface TeamGeneratorProps {
   footballFormat?: string;
   teams: GeneratedTeams | null | undefined;
   isOwner: boolean;
+  groupId: string;
+}
+
+function generateBalancedTeams(
+  players: ParticipantEntry[],
+  cards: Map<string, PlayerCardData>,
+  teamCount: number,
+): ParticipantEntry[][] {
+  const result = Array.from(
+    { length: teamCount },
+    () => [] as ParticipantEntry[],
+  );
+  const totals = Array.from({ length: teamCount }, () => 0);
+  const sorted = [...players].sort(
+    (a, b) =>
+      (cards.get(b.userId)?.overall ?? 50) -
+      (cards.get(a.userId)?.overall ?? 50),
+  );
+  sorted.forEach((player) => {
+    const target = totals.indexOf(Math.min(...totals));
+    result[target].push(player);
+    totals[target] += cards.get(player.userId)?.overall ?? 50;
+  });
+  return result;
 }
 
 function ParticipantAvatar({
@@ -58,6 +84,8 @@ function TeamCard({
   teamIndex,
   onMovePlayer,
   movingPlayerId,
+  cards,
+  onOpenCard,
 }: {
   title: string;
   players: ParticipantEntry[];
@@ -67,14 +95,33 @@ function TeamCard({
   teamIndex?: number;
   onMovePlayer?: (userId: string, fromIndex: number, toIndex: number) => void;
   movingPlayerId?: string | null;
+  cards: Map<string, PlayerCardData>;
+  onOpenCard: (card: PlayerCardData) => void;
 }) {
+  const rated = players
+    .map((player) => cards.get(player.userId))
+    .filter(Boolean) as PlayerCardData[];
+  const average = rated.length
+    ? Math.round(
+        rated.reduce((sum, card) => sum + card.overall, 0) / rated.length,
+      )
+    : null;
   return (
     <div className={`rounded-2xl border p-4 ${className}`}>
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-        {title} ({players.length})
-      </h3>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          {title} ({players.length})
+        </h3>
+        {average !== null && (
+          <span className="rounded-full bg-card px-2.5 py-1 text-xs font-bold text-foreground">
+            OVR {average}
+          </span>
+        )}
+      </div>
       {players.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">Niciun jucător alocat.</p>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Niciun jucător alocat.
+        </p>
       ) : (
         <ul className="mt-3 space-y-2">
           {players.map((player) => (
@@ -86,26 +133,48 @@ function TeamCard({
                 name={player.name}
                 photoURL={player.photoURL}
               />
-              <span className="flex-1 truncate text-sm font-medium text-foreground">
-                {player.name}
-              </span>
-              {editable && teamNames && typeof teamIndex === "number" && onMovePlayer && (
-                <select
-                  aria-label={`Mută pe ${player.name} în altă echipă`}
-                  value={teamIndex}
-                  disabled={movingPlayerId === player.userId}
-                  onChange={(event) =>
-                    onMovePlayer(player.userId, teamIndex, Number(event.target.value))
-                  }
-                  className="shrink-0 rounded-lg border border-border bg-background px-2 py-1 text-xs font-medium text-foreground disabled:opacity-50"
-                >
-                  {teamNames.map((name, index) => (
-                    <option key={name} value={index}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <button
+                type="button"
+                disabled={!cards.has(player.userId)}
+                onClick={() =>
+                  cards.get(player.userId) &&
+                  onOpenCard(cards.get(player.userId)!)
+                }
+                className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
+              >
+                <span className="truncate text-sm font-medium text-foreground">
+                  {player.name}
+                </span>
+                {cards.has(player.userId) && (
+                  <span className="text-xs font-bold text-primary">
+                    {cards.get(player.userId)?.overall}
+                  </span>
+                )}
+              </button>
+              {editable &&
+                teamNames &&
+                typeof teamIndex === "number" &&
+                onMovePlayer && (
+                  <select
+                    aria-label={`Mută pe ${player.name} în altă echipă`}
+                    value={teamIndex}
+                    disabled={movingPlayerId === player.userId}
+                    onChange={(event) =>
+                      onMovePlayer(
+                        player.userId,
+                        teamIndex,
+                        Number(event.target.value),
+                      )
+                    }
+                    className="shrink-0 rounded-lg border border-border bg-background px-2 py-1 text-xs font-medium text-foreground disabled:opacity-50"
+                  >
+                    {teamNames.map((name, index) => (
+                      <option key={name} value={index}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                )}
             </li>
           ))}
         </ul>
@@ -128,16 +197,25 @@ export default function TeamGenerator({
   footballFormat,
   teams,
   isOwner,
+  groupId,
 }: TeamGeneratorProps) {
   const [confirmed, setConfirmed] = useState<ParticipantEntry[]>([]);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [movingPlayerId, setMovingPlayerId] = useState<string | null>(null);
+  const [playerCards, setPlayerCards] = useState<PlayerCardData[]>([]);
+  const [selectedCard, setSelectedCard] = useState<PlayerCardData | null>(null);
+  const cardsByUser = useMemo(
+    () => new Map(playerCards.map((card) => [card.userId, card])),
+    [playerCards],
+  );
+
+  useEffect(() => subscribePlayerCards(groupId, setPlayerCards), [groupId]);
 
   useEffect(() => {
     const q = query(
       collection(db, "responses"),
-      where("eventId", "==", eventId)
+      where("eventId", "==", eventId),
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -157,7 +235,7 @@ export default function TeamGenerator({
           name: getParticipantName(data),
           photoURL: getParticipantPhoto(data),
           goingRegisteredAt: parseTimestamp(
-            data.goingRegisteredAt ?? data.createdAt
+            data.goingRegisteredAt ?? data.createdAt,
           ),
         });
       });
@@ -168,7 +246,7 @@ export default function TeamGenerator({
           userId,
           name,
           photoURL,
-        }))
+        })),
       );
     });
 
@@ -182,7 +260,11 @@ export default function TeamGenerator({
     setGenerating(true);
 
     try {
-      const generated = generateRandomTeams(confirmed, (footballFormat ?? getDefaultFootballFormat(maxParticipants)) as "2x6" | "3x5" | "3x6");
+      const generated = generateRandomTeams(
+        confirmed,
+        (footballFormat ?? getDefaultFootballFormat(maxParticipants)) as
+          "2x6" | "3x5" | "3x6",
+      );
 
       await updateDoc(doc(db, "events", eventId), {
         teams: {
@@ -202,16 +284,50 @@ export default function TeamGenerator({
     }
   }
 
-  const displayTeams = teams?.teams?.length ? teams.teams : [teams?.teamA ?? [], teams?.teamB ?? []];
-  const hasTeams = displayTeams.some((team) => team.length > 0);
-  const teamNames = displayTeams.map((_, index) => `Echipa ${String.fromCharCode(65 + index)}`);
+  async function handleGenerateBalanced() {
+    if (!isOwner || confirmed.length < 2) return;
+    setGenerating(true);
+    setError("");
+    try {
+      const format = (footballFormat ??
+        getDefaultFootballFormat(maxParticipants)) as "2x6" | "3x5" | "3x6";
+      const teamCount = format.startsWith("3") ? 3 : 2;
+      const balanced = generateBalancedTeams(confirmed, cardsByUser, teamCount);
+      await updateDoc(doc(db, "events", eventId), {
+        teams: {
+          teamA: balanced[0] ?? [],
+          teamB: balanced[1] ?? [],
+          teams: balanced.map((players) => ({ players })),
+          generatedAt: Timestamp.now(),
+        },
+      });
+    } catch {
+      setError("Nu am putut genera echipele echilibrate.");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
-  async function handleMovePlayer(userId: string, fromIndex: number, toIndex: number) {
+  const displayTeams = teams?.teams?.length
+    ? teams.teams
+    : [teams?.teamA ?? [], teams?.teamB ?? []];
+  const hasTeams = displayTeams.some((team) => team.length > 0);
+  const teamNames = displayTeams.map(
+    (_, index) => `Echipa ${String.fromCharCode(65 + index)}`,
+  );
+
+  async function handleMovePlayer(
+    userId: string,
+    fromIndex: number,
+    toIndex: number,
+  ) {
     if (!isOwner || fromIndex === toIndex) return;
 
     const nextTeams = displayTeams.map((players) => [...players]);
     const fromTeam = nextTeams[fromIndex];
-    const playerIndex = fromTeam.findIndex((player) => player.userId === userId);
+    const playerIndex = fromTeam.findIndex(
+      (player) => player.userId === userId,
+    );
     if (playerIndex === -1) return;
 
     const [player] = fromTeam.splice(playerIndex, 1);
@@ -243,20 +359,28 @@ export default function TeamGenerator({
   return (
     <section className="mt-8">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-bold tracking-tight text-foreground">Echipe</h2>
+        <h2 className="text-xl font-bold tracking-tight text-foreground">
+          Echipe
+        </h2>
         {isOwner && (
-          <button
-            type="button"
-            onClick={handleGenerateTeams}
-            disabled={generating || confirmed.length < 2}
-            className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {generating
-              ? "Se generează..."
-              : hasTeams
-                ? "Regenerează echipe"
-                : "Echipe aleatorii"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleGenerateBalanced}
+              disabled={generating || confirmed.length < 2}
+              className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover disabled:opacity-60"
+            >
+              {generating ? "Se generează..." : "Echipe echilibrate"}
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerateTeams}
+              disabled={generating || confirmed.length < 2}
+              className="inline-flex items-center justify-center rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-bold text-card-foreground transition hover:bg-muted disabled:opacity-60"
+            >
+              Aleatoriu
+            </button>
+          </div>
         )}
       </div>
 
@@ -276,7 +400,8 @@ export default function TeamGenerator({
         <>
           {isOwner && (
             <p className="mb-4 text-sm text-muted-foreground">
-              Poți muta manual jucătorii între echipe folosind meniul de lângă fiecare nume.
+              Poți muta manual jucătorii între echipe folosind meniul de lângă
+              fiecare nume.
             </p>
           )}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -285,12 +410,18 @@ export default function TeamGenerator({
                 key={index}
                 title={teamNames[index]}
                 players={players}
-                className={index % 2 === 0 ? "border-primary/30 bg-primary/5" : "border-accent/40 bg-accent/10"}
+                className={
+                  index % 2 === 0
+                    ? "border-primary/30 bg-primary/5"
+                    : "border-accent/40 bg-accent/10"
+                }
                 editable={isOwner}
                 teamNames={teamNames}
                 teamIndex={index}
                 onMovePlayer={handleMovePlayer}
                 movingPlayerId={movingPlayerId}
+                cards={cardsByUser}
+                onOpenCard={setSelectedCard}
               />
             ))}
           </div>
@@ -303,6 +434,33 @@ export default function TeamGenerator({
             </p>
           </div>
         )
+      )}
+
+      {selectedCard && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/50 p-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Cardul lui ${selectedCard.playerName ?? "jucător"}`}
+          onClick={() => setSelectedCard(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-background p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="font-bold text-foreground">Player Card</h3>
+              <button
+                type="button"
+                onClick={() => setSelectedCard(null)}
+                className="rounded-full border border-border px-3 py-1 text-sm font-semibold text-foreground"
+              >
+                Închide
+              </button>
+            </div>
+            <PlayerCard card={selectedCard} />
+          </div>
+        </div>
       )}
     </section>
   );
