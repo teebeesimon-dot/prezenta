@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { getCardTier, type PlayerCardData, type StageCard } from "@/lib/player-cards";
 
 function tierClasses(tier: ReturnType<typeof getCardTier>) {
@@ -12,13 +11,15 @@ function tierClasses(tier: ReturnType<typeof getCardTier>) {
 interface PlayerCardProps {
   card: PlayerCardData | StageCard;
   compact?: boolean;
+  playerName?: string;
+  playerPhoto?: string | null;
 }
 
-export default function PlayerCard({ card, compact = false }: PlayerCardProps) {
+export default function PlayerCard({ card, compact = false, playerName: playerNameProp, playerPhoto: playerPhotoProp }: PlayerCardProps) {
   const tier = getCardTier(card.overall);
   const isStage = "awardIds" in card;
-  const playerName = card.playerName ?? "Jucator";
-  const playerPhoto = card.playerPhoto ?? null;
+  const playerName = playerNameProp ?? ("playerName" in card ? card.playerName : "Jucator");
+  const playerPhoto = playerPhotoProp ?? ("playerPhoto" in card ? card.playerPhoto : null);
   const awards = isStage ? card.awards : [];
   const stats = "pace" in card
     ? [
@@ -30,6 +31,8 @@ export default function PlayerCard({ card, compact = false }: PlayerCardProps) {
         ["PHY", card.physical],
       ]
     : [];
+
+  const fallbackAvatarUrl = `/api/player-avatar?seed=${encodeURIComponent(card.userId)}&name=${encodeURIComponent(playerName)}`;
 
   return (
     <article
@@ -48,11 +51,7 @@ export default function PlayerCard({ card, compact = false }: PlayerCardProps) {
         </div>
 
         <div className="relative mt-2 aspect-[4/5] overflow-hidden rounded-2xl bg-black/10">
-          {playerPhoto ? (
-            <Image src={playerPhoto} alt={playerName} fill className="object-cover object-top" sizes="320px" />
-          ) : (
-            <div className="flex h-full items-end justify-center text-7xl font-black opacity-20">{playerName.slice(0, 1)}</div>
-          )}
+          <img src={playerPhoto || fallbackAvatarUrl} alt={playerName} className="h-full w-full object-cover object-top" loading="lazy" />
         </div>
 
         <div className="mt-3 text-center">
