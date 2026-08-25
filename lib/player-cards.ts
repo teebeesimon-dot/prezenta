@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -35,19 +36,38 @@ export function reportPlayerCardsError(error: unknown, operation: string, collec
 export type PlayerPosition = "GK" | "DEF" | "MID" | "ATT";
 export type CardTier = "bronze" | "silver" | "gold";
 
-export interface PlayerCardData {
-  userId: string;
-  groupId: string;
-  playerName?: string;
-  playerPhoto?: string | null;
-  overall: number;
-  position: PlayerPosition;
+export const PLAYER_POSITIONS: ReadonlyArray<{ value: PlayerPosition; label: string }> = [
+  { value: "GK", label: "Portar" },
+  { value: "DEF", label: "Fundaș" },
+  { value: "MID", label: "Mijlocaș" },
+  { value: "ATT", label: "Atacant" },
+];
+
+export interface OutfieldAttributes {
   pace: number;
   shooting: number;
   passing: number;
   dribbling: number;
   defending: number;
   physical: number;
+}
+
+export interface GoalkeeperAttributes {
+  diving: number;
+  handling: number;
+  kicking: number;
+  reflexes: number;
+  speed: number;
+  positioning: number;
+}
+
+export interface PlayerCardData extends OutfieldAttributes, GoalkeeperAttributes {
+  userId: string;
+  groupId: string;
+  playerName?: string;
+  playerPhoto?: string | null;
+  overall: number;
+  position: PlayerPosition;
   jerseyNumber?: number | null;
   updatedAt?: unknown;
   updatedBy?: string;
@@ -72,6 +92,12 @@ export interface StageCard {
   dribbling: number;
   defending: number;
   physical: number;
+  diving: number;
+  handling: number;
+  kicking: number;
+  reflexes: number;
+  speed: number;
+  positioning: number;
   jerseyNumber?: number | null;
   awardIds: string[];
   awards: StageAward[];
@@ -96,12 +122,79 @@ export const STAGE_AWARD_OPTIONS: StageAwardDefinition[] = [
 
 export function getCardTier(overall: number): CardTier { if (overall >= 75) return "gold"; if (overall >= 65) return "silver"; return "bronze"; }
 export function clampRating(value: number): number { return Math.min(99, Math.max(1, Math.round(value))); }
-export const defaultPlayerCard = (userId: string, groupId: string): PlayerCardData => ({ userId, groupId, overall: 65, position: "MID", pace: 65, shooting: 65, passing: 65, dribbling: 65, defending: 65, physical: 65, jerseyNumber: null });
+
+const DEFAULT_RATING = 65;
+const OUTFIELD_KEYS: Array<keyof OutfieldAttributes> = ["pace", "shooting", "passing", "dribbling", "defending", "physical"];
+const GOALKEEPER_KEYS: Array<keyof GoalkeeperAttributes> = ["diving", "handling", "kicking", "reflexes", "speed", "positioning"];
+
+export function goalkeeperAttributeAverage(card: GoalkeeperAttributes): number {
+  return Math.round(GOALKEEPER_KEYS.reduce((total, key) => total + clampRating(card[key]), 0) / GOALKEEPER_KEYS.length);
+}
+
+export function isValidManualGoalkeeperOverall(card: Pick<PlayerCardData, "overall" | "position"> & Partial<GoalkeeperAttributes>): boolean {
+  return card.position === "GK" && Number.isFinite(card.overall) && card.overall >= 1 && card.overall <= 99 && GOALKEEPER_KEYS.every((key) => Number.isFinite(card[key]) && Number(card[key]) >= 1 && Number(card[key]) <= 99);
+}
+
+export const defaultPlayerCard = (userId: string, groupId: string): PlayerCardData => ({
+  userId,
+  groupId,
+  overall: DEFAULT_RATING,
+  position: "MID",
+  pace: DEFAULT_RATING,
+  shooting: DEFAULT_RATING,
+  passing: DEFAULT_RATING,
+  dribbling: DEFAULT_RATING,
+  defending: DEFAULT_RATING,
+  physical: DEFAULT_RATING,
+  diving: DEFAULT_RATING,
+  handling: DEFAULT_RATING,
+  kicking: DEFAULT_RATING,
+  reflexes: DEFAULT_RATING,
+  speed: DEFAULT_RATING,
+  positioning: DEFAULT_RATING,
+  jerseyNumber: null,
+});
+
+export function hydratePlayerCard(card: PlayerCardData): PlayerCardData {
+  return {
+    ...defaultPlayerCard(card.userId, card.groupId),
+    ...card,
+    diving: card.diving ?? card.pace ?? DEFAULT_RATING,
+    handling: card.handling ?? card.defending ?? DEFAULT_RATING,
+    kicking: card.kicking ?? card.passing ?? DEFAULT_RATING,
+    reflexes: card.reflexes ?? card.dribbling ?? DEFAULT_RATING,
+    speed: card.speed ?? card.physical ?? DEFAULT_RATING,
+    positioning: card.positioning ?? card.shooting ?? DEFAULT_RATING,
+  };
+}
 
 export async function savePlayerCard(card: PlayerCardData, updatedBy: string): Promise<void> {
-  await setDoc(doc(db, "playerCards", `${card.groupId}_${card.userId}`), { ...card, overall: clampRating(card.overall), pace: clampRating(card.pace), shooting: clampRating(card.shooting), passing: clampRating(card.passing), dribbling: clampRating(card.dribbling), defending: clampRating(card.defending), physical: clampRating(card.physical), updatedBy, updatedAt: serverTimestamp() }, { merge: true });
+  const hydrated = hydratePlayerCard(card);
+  const shared = {
+    userId: hydrated.userId,
+    groupId: hydrated.groupId,
+    playerName: hydrated.playerName ?? null,
+    playerPhoto: hydrated.playerPhoto ?? null,
+    overall: clampRating(hydrated.overall),
+    position: hydrated.position,
+    jerseyNumber: hydrated.jerseyNumber ?? null,
+    updatedBy,
+    updatedAt: serverTimestamp(),
+  };
+  const attributes = hydrated.position === "GK"
+    ? {
+        diving: clampRating(hydrated.diving), handling: clampRating(hydrated.handling), kicking: clampRating(hydrated.kicking),
+        reflexes: clampRating(hydrated.reflexes), speed: clampRating(hydrated.speed), positioning: clampRating(hydrated.positioning),
+        ...Object.fromEntries(OUTFIELD_KEYS.map((key) => [key, deleteField()])),
+      }
+    : {
+        pace: clampRating(hydrated.pace), shooting: clampRating(hydrated.shooting), passing: clampRating(hydrated.passing),
+        dribbling: clampRating(hydrated.dribbling), defending: clampRating(hydrated.defending), physical: clampRating(hydrated.physical),
+        ...Object.fromEntries(GOALKEEPER_KEYS.map((key) => [key, deleteField()])),
+      };
+  await setDoc(doc(db, "playerCards", `${card.groupId}_${card.userId}`), { ...shared, ...attributes }, { merge: true });
 }
-export async function getPlayerCards(groupId: string): Promise<PlayerCardData[]> { const snap = await getDocs(query(collection(db, "playerCards"), where("groupId", "==", groupId))); return snap.docs.map((d) => d.data() as PlayerCardData); }
+export async function getPlayerCards(groupId: string): Promise<PlayerCardData[]> { const snap = await getDocs(query(collection(db, "playerCards"), where("groupId", "==", groupId))); return snap.docs.map((d) => hydratePlayerCard(d.data() as PlayerCardData)); }
 export function subscribePlayerCards(
   groupId: string,
   onChange: (cards: PlayerCardData[]) => void,
@@ -114,7 +207,7 @@ export function subscribePlayerCards(
 
   return onSnapshot(
     query(collection(db, "playerCards"), where("groupId", "==", groupId)),
-    (snap) => onChange(snap.docs.map((d) => d.data() as PlayerCardData)),
+    (snap) => onChange(snap.docs.map((d) => hydratePlayerCard(d.data() as PlayerCardData))),
     (error) => onError?.(reportPlayerCardsError(error, "Citirea cardurilor", "playerCards"))
   );
 }

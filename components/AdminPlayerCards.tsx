@@ -3,29 +3,40 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import {
+  defaultPlayerCard,
+  goalkeeperAttributeAverage,
+  PLAYER_POSITIONS,
   reportPlayerCardsError,
   savePlayerCard,
   subscribePlayerCards,
+  type GoalkeeperAttributes,
+  type OutfieldAttributes,
   type PlayerCardData,
   type PlayerPosition,
 } from "@/lib/player-cards";
 import { subscribeToGroupMembers, type Member } from "@/lib/members";
 
-const POSITIONS: { value: PlayerPosition; label: string }[] = [
-  { value: "GK", label: "Portar" },
-  { value: "DEF", label: "Fundas" },
-  { value: "MID", label: "Mijlocas" },
-  { value: "ATT", label: "Atacant" },
-];
-
-const STAT_FIELDS = [
-  ["pace", "Viteza"],
-  ["shooting", "Sut"],
+const OUTFIELD_STAT_FIELDS: ReadonlyArray<[keyof OutfieldAttributes, string]> = [
+  ["pace", "Viteză"],
+  ["shooting", "Șut"],
   ["passing", "Pase"],
   ["dribbling", "Dribling"],
-  ["defending", "Aparare"],
+  ["defending", "Apărare"],
   ["physical", "Fizic"],
-] as const;
+];
+
+const GOALKEEPER_STAT_FIELDS: ReadonlyArray<[keyof GoalkeeperAttributes, string]> = [
+  ["diving", "Plonjon (DIV)"],
+  ["handling", "Prindere (HAN)"],
+  ["kicking", "Degajare (KIC)"],
+  ["reflexes", "Reflexe (REF)"],
+  ["speed", "Viteză (SPD)"],
+  ["positioning", "Poziționare (POS)"],
+];
+
+function isRating(value: number): boolean {
+  return Number.isFinite(value) && value >= 1 && value <= 99;
+}
 
 export default function AdminPlayerCards({ groupId }: { groupId: string }) {
   const { user } = useAuth();
@@ -55,25 +66,25 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
     const existing = cards.find((card) => card.userId === userId);
     setForm(
       existing ?? {
-        userId,
-        groupId,
+        ...defaultPlayerCard(userId, groupId),
         playerName: member.userName,
         playerPhoto: member.userPhoto,
-        overall: 65,
-        position: "MID",
-        pace: 65,
-        shooting: 65,
-        passing: 65,
-        dribbling: 65,
-        defending: 65,
-        physical: 65,
-        jerseyNumber: null,
       }
     );
   }
 
+  const activeStatFields = form?.position === "GK" ? GOALKEEPER_STAT_FIELDS : OUTFIELD_STAT_FIELDS;
+  const goalkeeperAverage = form?.position === "GK" ? goalkeeperAttributeAverage(form) : null;
+  const overallDifference = goalkeeperAverage === null || !form ? 0 : Math.abs(form.overall - goalkeeperAverage);
+  const formIsValid = Boolean(
+    form && isRating(form.overall) && activeStatFields.every(([field]) => isRating(form[field]))
+  );
+
   async function handleSave() {
-    if (!form || !user) return;
+    if (!form || !user || !formIsValid) {
+      setMessage("OVR-ul și toate atributele trebuie să fie între 1 și 99.");
+      return;
+    }
     setSaving(true);
     setMessage("");
     try {
@@ -126,7 +137,7 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
               onChange={(event) => setForm({ ...form, position: event.target.value as PlayerPosition })}
               className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5"
             >
-              {POSITIONS.map((position) => (
+              {PLAYER_POSITIONS.map((position) => (
                 <option key={position.value} value={position.value}>
                   {position.label}
                 </option>
@@ -134,7 +145,18 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
             </select>
           </label>
 
-          {STAT_FIELDS.map(([field, label]) => (
+          {form.position === "GK" && goalkeeperAverage !== null && (
+            <div className="sm:col-span-2 rounded-xl border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
+              Media atributelor de portar este <strong className="text-foreground">{goalkeeperAverage}</strong>. OVR-ul rămâne manual.
+              {overallDifference >= 8 && (
+                <span className="mt-1 block font-medium text-foreground">
+                  Verifică OVR-ul: diferența față de media atributelor este de {overallDifference} puncte.
+                </span>
+              )}
+            </div>
+          )}
+
+          {activeStatFields.map(([field, label]) => (
             <label key={field} className="text-sm font-medium text-foreground">
               {label}
               <input
@@ -164,7 +186,7 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
             {message ? <span className="text-sm text-muted-foreground">{message}</span> : <span />}
             <button
               type="button"
-              disabled={saving}
+              disabled={saving || !formIsValid}
               onClick={handleSave}
               className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover disabled:opacity-60"
             >

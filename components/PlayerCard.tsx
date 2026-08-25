@@ -22,16 +22,23 @@ export default function PlayerCard({ card, compact = false, playerName: playerNa
   const playerName = playerNameProp?.trim() || card.playerName?.trim() || "Jucator";
   const playerPhoto = playerPhotoProp ?? card.playerPhoto ?? null;
   const awards = isStage ? card.awards : [];
-  const stats = "pace" in card
+  const stats = card.position === "GK"
     ? [
+        ["DIV", card.diving],
+        ["HAN", card.handling],
+        ["KIC", card.kicking],
+        ["REF", card.reflexes],
+        ["SPD", card.speed],
+        ["POS", card.positioning],
+      ]
+    : [
         ["PAC", card.pace],
         ["SHO", card.shooting],
         ["PAS", card.passing],
         ["DRI", card.dribbling],
         ["DEF", card.defending],
         ["PHY", card.physical],
-      ]
-    : [];
+      ];
 
   const fallbackAvatarUrl = `/api/player-avatar?seed=${encodeURIComponent(card.userId)}&name=${encodeURIComponent(playerName)}`;
 

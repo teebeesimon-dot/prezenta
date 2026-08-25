@@ -9,6 +9,7 @@ import {
   STAGE_AWARD_OPTIONS,
   getStageConfig,
   getStageVotes,
+  hydratePlayerCard,
   reportPlayerCardsError,
   saveStageConfig,
   upsertStageCard,
@@ -172,6 +173,12 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
           dribbling: card?.dribbling ?? 65,
           defending: card?.defending ?? 65,
           physical: card?.physical ?? 65,
+          diving: card?.diving ?? 65,
+          handling: card?.handling ?? 65,
+          kicking: card?.kicking ?? 65,
+          reflexes: card?.reflexes ?? 65,
+          speed: card?.speed ?? 65,
+          positioning: card?.positioning ?? 65,
           jerseyNumber: card?.jerseyNumber ?? null,
           awardIds: awards.map((award) => award.awardId),
           awards,
@@ -277,5 +284,5 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
 async function getExistingCard(groupId: string, userId: string) {
   const snap = await getDocs(query(collection(db, "playerCards"), where("groupId", "==", groupId), where("userId", "==", userId)));
   if (snap.empty) return null;
-  return snap.docs[0].data() as PlayerCardData;
+  return hydratePlayerCard(snap.docs[0].data() as PlayerCardData);
 }

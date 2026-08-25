@@ -10,6 +10,7 @@ import {
   createStageVote,
   getMyStageVotes,
   getStageConfig,
+  hydratePlayerCard,
   reportPlayerCardsError,
   STAGE_AWARD_OPTIONS,
   type PlayerCardData,
@@ -68,7 +69,7 @@ export default function PlayerCardSection({ groupId }: { groupId: string }) {
         getDocs(query(collection(db, "stageCards"), where("groupId", "==", groupId), where("userId", "==", user.uid))),
       ]);
       if (!active) return;
-      setBaseCard(baseSnap.empty ? null : (baseSnap.docs[0].data() as PlayerCardData));
+      setBaseCard(baseSnap.empty ? null : hydratePlayerCard(baseSnap.docs[0].data() as PlayerCardData));
       const cards = stageSnap.docs
         .map((docSnap) => {
           const data = docSnap.data() as Partial<StageCard>;
@@ -89,6 +90,12 @@ export default function PlayerCardSection({ groupId }: { groupId: string }) {
             dribbling: data.dribbling ?? 65,
             defending: data.defending ?? 65,
             physical: data.physical ?? 65,
+            diving: data.diving ?? data.pace ?? 65,
+            handling: data.handling ?? data.defending ?? 65,
+            kicking: data.kicking ?? data.passing ?? 65,
+            reflexes: data.reflexes ?? data.dribbling ?? 65,
+            speed: data.speed ?? data.physical ?? 65,
+            positioning: data.positioning ?? data.shooting ?? 65,
             jerseyNumber: data.jerseyNumber ?? null,
             awardIds: data.awardIds ?? [],
             awards: data.awards ?? [],
