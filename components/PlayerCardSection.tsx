@@ -62,6 +62,8 @@ export default function PlayerCardSection({ groupId }: { groupId: string }) {
     return () => { active = false; };
   }, [user, groupId, currentStageNumber]);
 
+  const currentMember = members.find((member) => member.userId === user?.uid) ?? null;
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -100,7 +102,9 @@ export default function PlayerCardSection({ groupId }: { groupId: string }) {
       {(baseCard || activeStageCard) && (
         <section className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
           <div><h2 className="text-xl font-bold text-foreground">Cardul meu</h2><p className="mt-1 text-sm text-muted-foreground">Cardul de baza si premiile castigate in etapele grupei.</p></div>
-          <div className="mt-5 flex flex-wrap gap-5">{activeStageCard ? <div><div className="mb-2 text-xs font-bold uppercase tracking-wider text-primary">Card activ · Etapa {currentStageNumber}</div><PlayerCard card={activeStageCard} /></div> : baseCard ? <PlayerCard card={baseCard} /> : null}</div>
+          <div className="mt-5 flex flex-wrap gap-5">
+            {activeStageCard ? <div><div className="mb-2 text-xs font-bold uppercase tracking-wider text-primary">Card activ · Etapa {currentStageNumber}</div><PlayerCard card={activeStageCard} /></div> : baseCard ? <PlayerCard card={baseCard} playerName={currentMember?.userName} playerPhoto={currentMember?.userPhoto} /> : null}
+          </div>
           {history.length > 0 && <div className="mt-8"><h3 className="text-lg font-bold text-foreground">Istoric</h3><div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{history.map((card) => <div key={card.id}><div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Etapa {card.stageNumber}</div><PlayerCard card={card} compact /></div>)}</div></div>}
         </section>
       )}
