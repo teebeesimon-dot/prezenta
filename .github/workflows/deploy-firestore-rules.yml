@@ -7,7 +7,6 @@ on:
     paths:
       - firestore.rules
       - firebase.json
-      - scripts/deploy-firestore-rules.mjs
       - .github/workflows/deploy-firestore-rules.yml
   workflow_dispatch:
 
@@ -20,27 +19,40 @@ concurrency:
 
 jobs:
   deploy:
-    name: Validate and deploy rules
+    name: Deploy rules with Firebase CLI
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
+      FIREBASE_PROJECT_ID: ne-adunam
       FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Require deployment credential
+        shell: bash
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::Missing repository secret FIREBASE_SERVICE_ACCOUNT_JSON."
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          project_id: ${{ env.FIREBASE_PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Report missing deployment credential
-        if: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON == '' }}
-        run: |
-          echo "::warning::Firestore rules were not deployed because FIREBASE_SERVICE_ACCOUNT_JSON is not configured."
-          echo "Add a valid service-account JSON as a repository secret, then run this workflow again."
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools
 
-      - name: Validate and deploy Firestore rules
-        if: ${{ env.FIREBASE_SERVICE_ACCOUNT_JSON != '' }}
-        run: node scripts/deploy-firestore-rules.mjs
+      - name: Deploy Firestore rules
+        run: firebase deploy --only firestore:rules --project "$FIREBASE_PROJECT_ID" --non-interactive
