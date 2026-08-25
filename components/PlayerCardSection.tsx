@@ -1,15 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthProvider";
 import { subscribeToGroupMembers, type Member } from "@/lib/members";
 import { db } from "@/lib/firebase";
 import PlayerCard from "@/components/PlayerCard";
 import { createStageVote, getStageConfig, getStageVotes, STAGE_AWARD_OPTIONS, type PlayerCardData, type StageCard } from "@/lib/player-cards";
 
-export default function PlayerCardSection({ groupId, currentStageNumber = 1 }: { groupId: string; currentStageNumber?: number }) {
+async function resolveCurrentStage(groupId: string): Promise<number> {
+  const seriesSnap = await getDoc(doc(db, "series", groupId));
+  if (seriesSnap.exists()) {
+    const currentEventId = seriesSnap.data().currentEventId as string | undefined;
+    if (!currentEventId) return 1;
+    const eventSnap = await getDoc(doc(db, "events", currentEventId));
+    return eventSnap.exists() ? Number(eventSnap.data().seriesIndex ?? 1) : 1;
+  }
+  const eventSnap = await getDoc(doc(db, "events", groupId));
+  return eventSnap.exists() ? Number(eventSnap.data().seriesIndex ?? 1) : 1;
+}
+
+export default function PlayerCardSection({ groupId }: { groupId: string }) {
   const { user } = useAuth();
+  const [currentStageNumber, setCurrentStageNumber] = useState(1);
   const [baseCard, setBaseCard] = useState<PlayerCardData | null>(null);
   const [activeStageCard, setActiveStageCard] = useState<StageCard | null>(null);
   const [history, setHistory] = useState<StageCard[]>([]);
@@ -24,6 +37,15 @@ export default function PlayerCardSection({ groupId, currentStageNumber = 1 }: {
   useEffect(() => subscribeToGroupMembers(groupId, setMembers), [groupId]);
 
   useEffect(() => {
+    let active = true;
+    (async () => {
+      const stage = await resolveCurrentStage(groupId);
+      if (active) setCurrentStageNumber(stage);
+    })();
+    return () => { active = false; };
+  }, [groupId]);
+
+  useEffect(() => {
     if (!user || !groupId) return;
     let active = true;
     (async () => {
@@ -36,8 +58,7 @@ export default function PlayerCardSection({ groupId, currentStageNumber = 1 }: {
       const cards = stageSnap.docs
         .map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Omit<StageCard, "id">) }))
         .sort((a, b) => b.stageNumber - a.stageNumber);
-      const current = cards.find((card) => card.stageNumber === currentStageNumber) ?? null;
-      setActiveStageCard(current);
+      setActiveStageCard(cards.find((card) => card.stageNumber === currentStageNumber) ?? null);
       setHistory(cards.filter((card) => card.stageNumber < currentStageNumber));
     })();
     return () => { active = false; };
@@ -53,9 +74,7 @@ export default function PlayerCardSection({ groupId, currentStageNumber = 1 }: {
       if (config?.votingOpen && user) {
         const votes = await getStageVotes(groupId, `${groupId}_stage_${currentStageNumber}`);
         const ownVotes: Record<string, string> = {};
-        votes.filter((vote) => vote.voterUserId === user.uid).forEach((vote) => {
-          ownVotes[vote.awardId] = vote.candidateUserId;
-        });
+        votes.filter((vote) => vote.voterUserId === user.uid).forEach((vote) => { ownVotes[vote.awardId] = vote.candidateUserId; });
         if (!cancelled) setVoted(ownVotes);
       } else {
         setVoted({});
@@ -83,10 +102,7 @@ export default function PlayerCardSection({ groupId, currentStageNumber = 1 }: {
     <>
       {(baseCard || activeStageCard) && (
         <section className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div>
-            <h2 className="text-xl font-bold text-foreground">Cardul meu</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Cardul de baza si premiile castigate in etapele grupei.</p>
-          </div>
+          <div><h2 className="text-xl font-bold text-foreground">Cardul meu</h2><p className="mt-1 text-sm text-muted-foreground">Cardul de baza si premiile castigate in etapele grupei.</p></div>
           <div className="mt-5 flex flex-wrap gap-5">
             {activeStageCard ? <div><div className="mb-2 text-xs font-bold uppercase tracking-wider text-primary">Card activ · Etapa {currentStageNumber}</div><PlayerCard card={activeStageCard} /></div> : baseCard ? <PlayerCard card={baseCard} /> : null}
           </div>
