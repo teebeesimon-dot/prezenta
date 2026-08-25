@@ -18,8 +18,8 @@ interface PlayerCardProps {
 export default function PlayerCard({ card, compact = false, playerName: playerNameProp, playerPhoto: playerPhotoProp }: PlayerCardProps) {
   const tier = getCardTier(card.overall);
   const isStage = "awardIds" in card;
-  const playerName = playerNameProp ?? ("playerName" in card ? card.playerName : "Jucator");
-  const playerPhoto = playerPhotoProp ?? ("playerPhoto" in card ? card.playerPhoto : null);
+  const playerName: string = playerNameProp ?? ("playerName" in card ? card.playerName : "Jucator");
+  const playerPhoto: string | null = playerPhotoProp ?? ("playerPhoto" in card ? card.playerPhoto : null);
   const awards = isStage ? card.awards : [];
   const stats = "pace" in card
     ? [
@@ -35,17 +35,13 @@ export default function PlayerCard({ card, compact = false, playerName: playerNa
   const fallbackAvatarUrl = `/api/player-avatar?seed=${encodeURIComponent(card.userId)}&name=${encodeURIComponent(playerName)}`;
 
   return (
-    <article
-      className={`relative overflow-hidden rounded-[26px] border border-white/60 bg-gradient-to-br ${tierClasses(tier)} shadow-xl ${compact ? "w-44" : "w-full max-w-xs"}`}
-    >
+    <article className={`relative overflow-hidden rounded-[26px] border border-white/60 bg-gradient-to-br ${tierClasses(tier)} shadow-xl ${compact ? "w-44" : "w-full max-w-xs"}`}>
       <div className="absolute inset-x-0 top-0 h-20 bg-white/20 blur-xl" />
       <div className="relative p-3">
         <div className="flex items-start justify-between">
           <div>
             <div className="text-3xl font-black leading-none">{card.overall}</div>
-            <div className="mt-1 text-[10px] font-extrabold uppercase tracking-widest opacity-80">
-              {isStage ? `Etapa ${card.stageNumber}` : tier}
-            </div>
+            <div className="mt-1 text-[10px] font-extrabold uppercase tracking-widest opacity-80">{isStage ? `Etapa ${card.stageNumber}` : tier}</div>
           </div>
           <div className="text-right text-xs font-black uppercase">{card.position}</div>
         </div>
@@ -58,23 +54,14 @@ export default function PlayerCard({ card, compact = false, playerName: playerNa
           <div className="truncate text-xl font-black uppercase tracking-tight">{playerName}</div>
           {isStage && awards.length > 0 && (
             <div className="mt-2 flex flex-wrap justify-center gap-1">
-              {awards.map((award) => (
-                <span key={award.awardId} className="rounded-full bg-black/10 px-2 py-1 text-[10px] font-bold">
-                  {award.label}
-                </span>
-              ))}
+              {awards.map((award) => <span key={award.awardId} className="rounded-full bg-black/10 px-2 py-1 text-[10px] font-bold">{award.label}</span>)}
             </div>
           )}
         </div>
 
         {stats.length > 0 && !compact && (
           <div className="mt-3 grid grid-cols-3 gap-2 border-t border-black/10 pt-3">
-            {stats.map(([label, value]) => (
-              <div key={label} className="text-center">
-                <div className="text-sm font-black">{value}</div>
-                <div className="text-[9px] font-bold opacity-70">{label}</div>
-              </div>
-            ))}
+            {stats.map(([label, value]) => <div key={label} className="text-center"><div className="text-sm font-black">{value}</div><div className="text-[9px] font-bold opacity-70">{label}</div></div>)}
           </div>
         )}
       </div>
