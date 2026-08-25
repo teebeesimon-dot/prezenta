@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
-import { savePlayerCard, subscribePlayerCards, type PlayerCardData, type PlayerPosition } from "@/lib/player-cards";
+import {
+  reportPlayerCardsError,
+  savePlayerCard,
+  subscribePlayerCards,
+  type PlayerCardData,
+  type PlayerPosition,
+} from "@/lib/player-cards";
 import { subscribeToGroupMembers, type Member } from "@/lib/members";
 
 const POSITIONS: { value: PlayerPosition; label: string }[] = [
@@ -31,7 +37,10 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
   const [message, setMessage] = useState("");
 
   useEffect(() => subscribeToGroupMembers(groupId, setMembers), [groupId]);
-  useEffect(() => subscribePlayerCards(groupId, setCards), [groupId]);
+  useEffect(
+    () => subscribePlayerCards(groupId, setCards, setMessage),
+    [groupId]
+  );
 
   function selectPlayer(userId: string) {
     setSelectedUserId(userId);
@@ -70,8 +79,8 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
     try {
       await savePlayerCard(form, user.uid);
       setMessage("Card salvat.");
-    } catch {
-      setMessage("Nu am putut salva cardul.");
+    } catch (error) {
+      setMessage(reportPlayerCardsError(error, "Salvarea cardului", "playerCards"));
     } finally {
       setSaving(false);
     }

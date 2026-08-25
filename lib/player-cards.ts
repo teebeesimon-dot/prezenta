@@ -9,7 +9,28 @@ import {
   setDoc,
   where,
 } from "firebase/firestore";
+import { FirebaseError } from "firebase/app";
 import { db } from "@/lib/firebase";
+
+const FIRESTORE_ERROR_MESSAGES: Record<string, string> = {
+  "permission-denied": "Nu ai permisiunea necesară. Verifică rolul de administrator și regulile Firestore publicate.",
+  unauthenticated: "Sesiunea a expirat. Autentifică-te din nou și reîncearcă.",
+  unavailable: "Serviciul Firestore este indisponibil momentan. Reîncearcă în câteva secunde.",
+  "failed-precondition": "Operația necesită o configurare Firestore suplimentară, de exemplu un index.",
+  "already-exists": "Această înregistrare există deja.",
+  "not-found": "Înregistrarea solicitată nu mai există.",
+};
+
+export function playerCardsErrorMessage(error: unknown, operation: string, collectionName: string): string {
+  const code = error instanceof FirebaseError ? error.code.replace("firestore/", "") : "unknown";
+  const detail = FIRESTORE_ERROR_MESSAGES[code] ?? "A apărut o eroare neașteptată. Reîncearcă.";
+  return `${operation} (${collectionName}): ${detail}`;
+}
+
+export function reportPlayerCardsError(error: unknown, operation: string, collectionName: string): string {
+  console.error(`[Player Cards] ${operation} failed for ${collectionName}`, error);
+  return playerCardsErrorMessage(error, operation, collectionName);
+}
 
 export type PlayerPosition = "GK" | "DEF" | "MID" | "ATT";
 export type CardTier = "bronze" | "silver" | "gold";
@@ -81,7 +102,22 @@ export async function savePlayerCard(card: PlayerCardData, updatedBy: string): P
   await setDoc(doc(db, "playerCards", `${card.groupId}_${card.userId}`), { ...card, overall: clampRating(card.overall), pace: clampRating(card.pace), shooting: clampRating(card.shooting), passing: clampRating(card.passing), dribbling: clampRating(card.dribbling), defending: clampRating(card.defending), physical: clampRating(card.physical), updatedBy, updatedAt: serverTimestamp() }, { merge: true });
 }
 export async function getPlayerCards(groupId: string): Promise<PlayerCardData[]> { const snap = await getDocs(query(collection(db, "playerCards"), where("groupId", "==", groupId))); return snap.docs.map((d) => d.data() as PlayerCardData); }
-export function subscribePlayerCards(groupId: string, onChange: (cards: PlayerCardData[]) => void): () => void { if (!groupId) { onChange([]); return () => {}; } return onSnapshot(query(collection(db, "playerCards"), where("groupId", "==", groupId)), (snap) => onChange(snap.docs.map((d) => d.data() as PlayerCardData)), () => onChange([])); }
+export function subscribePlayerCards(
+  groupId: string,
+  onChange: (cards: PlayerCardData[]) => void,
+  onError?: (message: string) => void
+): () => void {
+  if (!groupId) {
+    onChange([]);
+    return () => {};
+  }
+
+  return onSnapshot(
+    query(collection(db, "playerCards"), where("groupId", "==", groupId)),
+    (snap) => onChange(snap.docs.map((d) => d.data() as PlayerCardData)),
+    (error) => onError?.(reportPlayerCardsError(error, "Citirea cardurilor", "playerCards"))
+  );
+}
 
 function stageConfigId(groupId: string, stageNumber: number): string { return `${groupId}_stage_${stageNumber}`; }
 export async function saveStageConfig(params: { groupId: string; stageNumber: number; awardIds: string[]; votingOpen: boolean; published?: boolean }): Promise<void> {

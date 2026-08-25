@@ -128,24 +128,85 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isGroupOwner() || isSuperAdmin());
     }
 
-    match /playerCards/{cardId} {
-      allow get, list: if isAuthenticated();
-      allow create, update: if isSuperAdmin();
-      allow delete: if isSuperAdmin();
-    }
+match /playerCards/{cardId} {
+  function validCardId() {
+    return cardId == request.resource.data.groupId + '_' + request.resource.data.userId;
+  }
 
-    match /stageConfigs/{stageId} {
-      allow get: if isAuthenticated();
-      allow list: if isSuperAdmin();
-      allow create, update: if isSuperAdmin();
-      allow delete: if isSuperAdmin();
-    }
+  function validCardFields() {
+    return request.resource.data.keys().hasAll([
+      'groupId', 'userId', 'overall', 'position', 'pace', 'shooting',
+      'passing', 'dribbling', 'defending', 'physical', 'updatedBy', 'updatedAt'
+    ]) && request.resource.data.keys().hasOnly([
+      'groupId', 'userId', 'playerName', 'playerPhoto', 'overall', 'position',
+      'pace', 'shooting', 'passing', 'dribbling', 'defending', 'physical',
+      'jerseyNumber', 'updatedBy', 'updatedAt'
+    ]);
+  }
 
-    match /stageCards/{cardId} {
-      allow get, list: if isAuthenticated();
-      allow create, update: if isSuperAdmin();
-      allow delete: if isSuperAdmin();
-    }
+  allow get, list: if isAuthenticated();
+  allow create: if isSuperAdmin() && validCardId() && validCardFields();
+  allow update: if isSuperAdmin()
+    && validCardId()
+    && validCardFields()
+    && request.resource.data.groupId == resource.data.groupId
+    && request.resource.data.userId == resource.data.userId;
+  allow delete: if isSuperAdmin();
+  }
+
+match /stageConfigs/{stageId} {
+  function validStageConfigId() {
+    return stageId == request.resource.data.groupId + '_stage_' + request.resource.data.stageNumber;
+  }
+
+  function validStageConfigFields() {
+    return request.resource.data.keys().hasAll([
+      'id', 'groupId', 'stageNumber', 'awardIds', 'votingOpen', 'published', 'updatedAt'
+    ]) && request.resource.data.keys().hasOnly([
+      'id', 'groupId', 'stageNumber', 'awardIds', 'votingOpen', 'published',
+      'createdAt', 'updatedAt'
+    ]);
+  }
+
+  allow get: if isAuthenticated();
+  allow list: if isSuperAdmin();
+  allow create: if isSuperAdmin() && validStageConfigId() && validStageConfigFields();
+  allow update: if isSuperAdmin()
+    && validStageConfigId()
+    && validStageConfigFields()
+    && request.resource.data.groupId == resource.data.groupId
+    && request.resource.data.stageNumber == resource.data.stageNumber;
+  allow delete: if isSuperAdmin();
+  }
+
+match /stageCards/{cardId} {
+  function validStageCardId() {
+    return cardId == request.resource.data.groupId + '_' + request.resource.data.stageId + '_' + request.resource.data.userId;
+  }
+
+  function validStageCardFields() {
+    return request.resource.data.keys().hasAll([
+      'groupId', 'stageId', 'stageNumber', 'userId', 'playerName', 'playerPhoto',
+      'overall', 'position', 'pace', 'shooting', 'passing', 'dribbling',
+      'defending', 'physical', 'awardIds', 'awards', 'createdAt'
+    ]) && request.resource.data.keys().hasOnly([
+      'groupId', 'stageId', 'stageNumber', 'userId', 'playerName', 'playerPhoto',
+      'overall', 'position', 'pace', 'shooting', 'passing', 'dribbling',
+      'defending', 'physical', 'jerseyNumber', 'awardIds', 'awards',
+      'activeFrom', 'activeUntil', 'createdAt'
+    ]);
+  }
+
+  allow get, list: if isAuthenticated();
+  allow create: if isSuperAdmin() && validStageCardId() && validStageCardFields();
+  allow update: if isSuperAdmin()
+    && validStageCardId()
+    && validStageCardFields()
+    && request.resource.data.groupId == resource.data.groupId
+    && request.resource.data.stageId == resource.data.stageId
+    && request.resource.data.userId == resource.data.userId;
+  allow delete: if isSuperAdmin();
+  }
 
     match /stageVotes/{voteId} {
       function validVoteId() { return voteId == request.resource.data.groupId + '_' + request.resource.data.stageId + '_' + request.resource.data.awardId + '_' + request.resource.data.voterUserId; }

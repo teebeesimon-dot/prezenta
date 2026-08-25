@@ -6,7 +6,15 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { subscribeToGroupMembers, type Member } from "@/lib/members";
 import { db } from "@/lib/firebase";
 import PlayerCard from "@/components/PlayerCard";
-import { createStageVote, getMyStageVotes, getStageConfig, STAGE_AWARD_OPTIONS, type PlayerCardData, type StageCard } from "@/lib/player-cards";
+import {
+  createStageVote,
+  getMyStageVotes,
+  getStageConfig,
+  reportPlayerCardsError,
+  STAGE_AWARD_OPTIONS,
+  type PlayerCardData,
+  type StageCard,
+} from "@/lib/player-cards";
 
 async function resolveCurrentStage(groupId: string): Promise<number> {
   const seriesSnap = await getDoc(doc(db, "series", groupId));
@@ -33,14 +41,19 @@ export default function PlayerCardSection({ groupId }: { groupId: string }) {
   const [selection, setSelection] = useState<Record<string, string>>({});
   const [savingVote, setSavingVote] = useState<string | null>(null);
   const [voteMessage, setVoteMessage] = useState("");
+  const [dataMessage, setDataMessage] = useState("");
 
   useEffect(() => subscribeToGroupMembers(groupId, setMembers), [groupId]);
 
   useEffect(() => {
     let active = true;
     (async () => {
-      const stage = await resolveCurrentStage(groupId);
-      if (active) setCurrentStageNumber(stage);
+      try {
+        const stage = await resolveCurrentStage(groupId);
+        if (active) setCurrentStageNumber(stage);
+      } catch (error) {
+        if (active) setDataMessage(reportPlayerCardsError(error, "Identificarea etapei curente", "series / events"));
+      }
     })();
     return () => { active = false; };
   }, [groupId]);
@@ -49,7 +62,8 @@ export default function PlayerCardSection({ groupId }: { groupId: string }) {
     if (!user || !groupId) return;
     let active = true;
     (async () => {
-      const [baseSnap, stageSnap] = await Promise.all([
+      try {
+        const [baseSnap, stageSnap] = await Promise.all([
         getDocs(query(collection(db, "playerCards"), where("groupId", "==", groupId), where("userId", "==", user.uid))),
         getDocs(query(collection(db, "stageCards"), where("groupId", "==", groupId), where("userId", "==", user.uid))),
       ]);
@@ -81,8 +95,12 @@ export default function PlayerCardSection({ groupId }: { groupId: string }) {
           } satisfies StageCard;
         })
         .sort((a, b) => b.stageNumber - a.stageNumber);
-      setActiveStageCard(cards.find((card) => card.stageNumber === currentStageNumber) ?? null);
-      setHistory(cards.filter((card) => card.stageNumber < currentStageNumber));
+        setActiveStageCard(cards.find((card) => card.stageNumber === currentStageNumber) ?? null);
+        setHistory(cards.filter((card) => card.stageNumber < currentStageNumber));
+        setDataMessage("");
+      } catch (error) {
+        if (active) setDataMessage(reportPlayerCardsError(error, "Citirea cardurilor", "playerCards / stageCards"));
+      }
     })();
     return () => { active = false; };
   }, [user, groupId, currentStageNumber]);
@@ -92,16 +110,20 @@ export default function PlayerCardSection({ groupId }: { groupId: string }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const config = await getStageConfig(groupId, currentStageNumber);
-      if (cancelled) return;
-      setAwardIds(config?.awardIds ?? []);
-      setVotingOpen(config?.votingOpen ?? false);
-      setVoted({});
-      if (config?.votingOpen && user) {
-        const ownVotes = await getMyStageVotes(groupId, `${groupId}_stage_${currentStageNumber}`, user.uid);
-        const mapped: Record<string, string> = {};
-        ownVotes.forEach((vote) => { mapped[vote.awardId] = vote.candidateUserId; });
-        if (!cancelled) setVoted(mapped);
+      try {
+        const config = await getStageConfig(groupId, currentStageNumber);
+        if (cancelled) return;
+        setAwardIds(config?.awardIds ?? []);
+        setVotingOpen(config?.votingOpen ?? false);
+        setVoted({});
+        if (config?.votingOpen && user) {
+          const ownVotes = await getMyStageVotes(groupId, `${groupId}_stage_${currentStageNumber}`, user.uid);
+          const mapped: Record<string, string> = {};
+          ownVotes.forEach((vote) => { mapped[vote.awardId] = vote.candidateUserId; });
+          if (!cancelled) setVoted(mapped);
+        }
+      } catch (error) {
+        if (!cancelled) setDataMessage(reportPlayerCardsError(error, "Citirea votării", "stageConfigs / stageVotes"));
       }
     })();
     return () => { cancelled = true; };
@@ -115,8 +137,8 @@ export default function PlayerCardSection({ groupId }: { groupId: string }) {
       await createStageVote({ groupId, stageId: `${groupId}_stage_${currentStageNumber}`, awardId, voterUserId: user.uid, candidateUserId: selection[awardId] });
       setVoted((current) => ({ ...current, [awardId]: selection[awardId] }));
       setVoteMessage("Votul a fost inregistrat.");
-    } catch {
-      setVoteMessage("Votul nu a putut fi inregistrat. Daca ai votat deja, nu mai poate fi repetat.");
+    } catch (error) {
+      setVoteMessage(reportPlayerCardsError(error, "Înregistrarea votului", "stageVotes"));
     } finally {
       setSavingVote(null);
     }
@@ -124,6 +146,12 @@ export default function PlayerCardSection({ groupId }: { groupId: string }) {
 
   return (
     <>
+      {dataMessage && (
+        <p role="alert" className="mt-8 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {dataMessage}
+        </p>
+      )}
+
       {(baseCard || activeStageCard) && (
         <section className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
           <div><h2 className="text-xl font-bold text-foreground">Cardul meu</h2><p className="mt-1 text-sm text-muted-foreground">Cardul de baza si premiile castigate in etapele grupei.</p></div>

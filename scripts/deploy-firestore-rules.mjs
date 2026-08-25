@@ -16,11 +16,26 @@ import path from "node:path";
 // run with a freshly provided key even if the env var lags behind.
 const rawKey = process.env.SERVICE_ACCOUNT_FILE
   ? readFileSync(process.env.SERVICE_ACCOUNT_FILE, "utf8")
-  : (process.env.FIREBASE_SERVICE_ACCOUNT ?? "");
+  : (process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+    ?? process.env.FIREBASE_SERVICE_ACCOUNT
+    ?? "");
 
-const sa = JSON.parse(rawKey || "{}");
-if (!sa.private_key) {
-  console.error("Service account is missing or invalid");
+let sa;
+try {
+  sa = JSON.parse(rawKey || "{}");
+} catch {
+  console.error("Service account JSON is invalid. Provide the complete JSON document, not a quoted or truncated value.");
+  process.exit(1);
+}
+
+if (!sa.private_key || !sa.client_email || !sa.project_id || !sa.token_uri) {
+  console.error("Service account is missing private_key, client_email, project_id, or token_uri.");
+  process.exit(1);
+}
+
+const publicProject = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+if (publicProject && publicProject !== sa.project_id) {
+  console.error(`Service account project mismatch: expected ${publicProject}, received ${sa.project_id}.`);
   process.exit(1);
 }
 
@@ -67,7 +82,13 @@ async function getAccessToken() {
     }),
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(`token: ${JSON.stringify(json)}`);
+  if (!res.ok) {
+    const detail = json.error_description ?? json.error ?? res.statusText;
+    throw new Error(
+      `OAuth token exchange failed (${res.status}): ${detail}. `
+      + "Regenerate or re-enable the service-account key and verify the system clock."
+    );
+  }
   return json.access_token;
 }
 

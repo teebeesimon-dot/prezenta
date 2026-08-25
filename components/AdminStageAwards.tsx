@@ -9,6 +9,7 @@ import {
   STAGE_AWARD_OPTIONS,
   getStageConfig,
   getStageVotes,
+  reportPlayerCardsError,
   saveStageConfig,
   upsertStageCard,
   type PlayerCardData,
@@ -39,12 +40,18 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const config = await getStageConfig(groupId, stageNumber);
-      if (cancelled) return;
-      setSelectedAwards(config?.awardIds?.length ? config.awardIds : ["mvp", "top_scorer"]);
-      setVotingOpen(config?.votingOpen ?? false);
-      setPublished(config?.published ?? false);
-      setResults({});
+      try {
+        const config = await getStageConfig(groupId, stageNumber);
+        if (cancelled) return;
+        setSelectedAwards(config?.awardIds?.length ? config.awardIds : ["mvp", "top_scorer"]);
+        setVotingOpen(config?.votingOpen ?? false);
+        setPublished(config?.published ?? false);
+        setResults({});
+      } catch (error) {
+        if (!cancelled) {
+          setMessage(reportPlayerCardsError(error, "Citirea configurației etapei", "stageConfigs"));
+        }
+      }
     })();
     return () => { cancelled = true; };
   }, [groupId, stageNumber]);
@@ -65,8 +72,8 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
       setVotingOpen(true);
       setPublished(false);
       setMessage("Votarea este deschisa. Participantii o vor vedea pe pagina meciului.");
-    } catch {
-      setMessage("Nu am putut deschide votarea.");
+    } catch (error) {
+      setMessage(reportPlayerCardsError(error, "Deschiderea votării", "stageConfigs"));
     } finally {
       setSaving(false);
     }
@@ -79,16 +86,18 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
       await saveStageConfig({ groupId, stageNumber, awardIds: selectedAwards, votingOpen: false, published: false });
       setVotingOpen(false);
       setMessage("Votarea a fost inchisa.");
-    } catch {
-      setMessage("Nu am putut inchide votarea.");
+    } catch (error) {
+      setMessage(reportPlayerCardsError(error, "Închiderea votării", "stageConfigs"));
     } finally {
       setSaving(false);
     }
   }
 
   async function loadResults() {
-    const stageVotes = await getStageVotes(groupId, stageId);
-    const grouped: Record<string, StageAward[]> = {};
+    setMessage("");
+    try {
+      const stageVotes = await getStageVotes(groupId, stageId);
+      const grouped: Record<string, StageAward[]> = {};
     for (const awardId of selectedAwards) {
       const award = awardOptions.find((item) => item.id === awardId);
       if (!award) continue;
@@ -110,7 +119,10 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
         })
         .sort((a, b) => b.votes - a.votes);
     }
-    setResults(grouped);
+      setResults(grouped);
+    } catch (error) {
+      setMessage(reportPlayerCardsError(error, "Citirea rezultatelor", "stageVotes"));
+    }
   }
 
   async function publishStageCards() {
@@ -171,8 +183,8 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
       setVotingOpen(false);
       await loadResults();
       setMessage("Rezultatele au fost publicate si cardurile etapei au fost create.");
-    } catch {
-      setMessage("Nu am putut publica premiile etapei.");
+    } catch (error) {
+      setMessage(reportPlayerCardsError(error, "Publicarea premiilor", "stageCards / stageConfigs"));
     } finally {
       setSaving(false);
     }
