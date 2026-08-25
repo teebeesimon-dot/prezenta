@@ -17,6 +17,8 @@ export type CardTier = "bronze" | "silver" | "gold";
 export interface PlayerCardData {
   userId: string;
   groupId: string;
+  playerName?: string;
+  playerPhoto?: string | null;
   overall: number;
   position: PlayerPosition;
   pace: number;
