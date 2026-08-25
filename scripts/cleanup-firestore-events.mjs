@@ -109,11 +109,15 @@ if (
   );
 }
 
+const pathOf = (entry) => (typeof entry === "string" ? entry : entry?.path);
 const paths = [
-  ...report.affectedDocuments.directEventScoped.map(({ path }) => path),
-  ...report.affectedDocuments.members.map(({ path }) => path),
-  ...report.affectedDocuments.events.map(({ path }) => path),
+  ...report.affectedDocuments.directEventScoped.map(pathOf),
+  ...report.affectedDocuments.members.map(pathOf),
+  ...report.affectedDocuments.events.map(pathOf),
 ];
+if (paths.some((path) => typeof path !== "string" || !path.includes("/"))) {
+  throw new Error("Audit contains an invalid document path. Refusing cleanup.");
+}
 if (
   paths.some((path) => [...PROTECTED_EVENT_IDS].some((id) => path.includes(id)))
 ) {
