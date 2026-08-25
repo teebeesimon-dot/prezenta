@@ -11,6 +11,7 @@ import {
   getStageVotes,
   saveStageConfig,
   upsertStageCard,
+  type PlayerCardData,
   type StageAward,
 } from "@/lib/player-cards";
 
@@ -153,6 +154,13 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
           playerPhoto: awards[0].winnerPhoto,
           overall: card?.overall ?? 65,
           position: card?.position ?? "MID",
+          pace: card?.pace ?? 65,
+          shooting: card?.shooting ?? 65,
+          passing: card?.passing ?? 65,
+          dribbling: card?.dribbling ?? 65,
+          defending: card?.defending ?? 65,
+          physical: card?.physical ?? 65,
+          jerseyNumber: card?.jerseyNumber ?? null,
           awardIds: awards.map((award) => award.awardId),
           awards,
         });
@@ -257,5 +265,5 @@ export default function AdminStageAwards({ groupId, currentStageNumber = 1 }: Ad
 async function getExistingCard(groupId: string, userId: string) {
   const snap = await getDocs(query(collection(db, "playerCards"), where("groupId", "==", groupId), where("userId", "==", userId)));
   if (snap.empty) return null;
-  return snap.docs[0].data() as { overall: number; position: "GK" | "DEF" | "MID" | "ATT" };
+  return snap.docs[0].data() as PlayerCardData;
 }

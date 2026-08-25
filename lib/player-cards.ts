@@ -35,7 +35,29 @@ export interface PlayerCardData {
 export interface StageAwardDefinition { id: string; label: string; description?: string; }
 export interface StageAward { awardId: string; label: string; winnerUserId: string; winnerName: string; winnerPhoto: string | null; votes: number; }
 export interface StageConfig { id: string; groupId: string; stageNumber: number; awardIds: string[]; votingOpen: boolean; published: boolean; createdAt?: unknown; updatedAt?: unknown; }
-export interface StageCard { id: string; groupId: string; stageId: string; stageNumber: number; userId: string; playerName: string; playerPhoto: string | null; overall: number; position: PlayerPosition; awardIds: string[]; awards: StageAward[]; activeFrom?: unknown; activeUntil?: unknown; createdAt?: unknown; }
+export interface StageCard {
+  id: string;
+  groupId: string;
+  stageId: string;
+  stageNumber: number;
+  userId: string;
+  playerName: string;
+  playerPhoto: string | null;
+  overall: number;
+  position: PlayerPosition;
+  pace: number;
+  shooting: number;
+  passing: number;
+  dribbling: number;
+  defending: number;
+  physical: number;
+  jerseyNumber?: number | null;
+  awardIds: string[];
+  awards: StageAward[];
+  activeFrom?: unknown;
+  activeUntil?: unknown;
+  createdAt?: unknown;
+}
 
 export const STAGE_AWARD_OPTIONS: StageAwardDefinition[] = [
   { id: "mvp", label: "Omul etapei" },

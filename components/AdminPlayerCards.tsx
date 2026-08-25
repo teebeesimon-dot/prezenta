@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { savePlayerCard, subscribePlayerCards, type PlayerCardData, type PlayerPosition } from "@/lib/player-cards";
 import { subscribeToGroupMembers, type Member } from "@/lib/members";
@@ -33,21 +33,23 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
   useEffect(() => subscribeToGroupMembers(groupId, setMembers), [groupId]);
   useEffect(() => subscribePlayerCards(groupId, setCards), [groupId]);
 
-  const selectedMember = useMemo(
-    () => members.find((member) => member.userId === selectedUserId) ?? null,
-    [members, selectedUserId]
-  );
+  function selectPlayer(userId: string) {
+    setSelectedUserId(userId);
+    setMessage("");
 
-  useEffect(() => {
-    if (!selectedMember) {
+    const member = members.find((item) => item.userId === userId);
+    if (!member) {
       setForm(null);
       return;
     }
-    const existing = cards.find((card) => card.userId === selectedMember.userId);
+
+    const existing = cards.find((card) => card.userId === userId);
     setForm(
       existing ?? {
-        userId: selectedMember.userId,
+        userId,
         groupId,
+        playerName: member.userName,
+        playerPhoto: member.userPhoto,
         overall: 65,
         position: "MID",
         pace: 65,
@@ -59,7 +61,7 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
         jerseyNumber: null,
       }
     );
-  }, [selectedMember, cards, groupId]);
+  }
 
   async function handleSave() {
     if (!form || !user) return;
@@ -84,7 +86,7 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
 
       <select
         value={selectedUserId}
-        onChange={(event) => setSelectedUserId(event.target.value)}
+        onChange={(event) => selectPlayer(event.target.value)}
         className="mt-4 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground"
       >
         <option value="">Selecteaza jucatorul</option>

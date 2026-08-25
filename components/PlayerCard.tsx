@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { getCardTier, type PlayerCardData, type StageCard } from "@/lib/player-cards";
 
 function tierClasses(tier: ReturnType<typeof getCardTier>) {
@@ -18,8 +19,8 @@ interface PlayerCardProps {
 export default function PlayerCard({ card, compact = false, playerName: playerNameProp, playerPhoto: playerPhotoProp }: PlayerCardProps) {
   const tier = getCardTier(card.overall);
   const isStage = "awardIds" in card;
-  const playerName: string = playerNameProp ?? ("playerName" in card ? card.playerName : "Jucator");
-  const playerPhoto: string | null = playerPhotoProp ?? ("playerPhoto" in card ? card.playerPhoto : null);
+  const playerName = playerNameProp?.trim() || card.playerName?.trim() || "Jucator";
+  const playerPhoto = playerPhotoProp ?? card.playerPhoto ?? null;
   const awards = isStage ? card.awards : [];
   const stats = "pace" in card
     ? [
@@ -47,7 +48,14 @@ export default function PlayerCard({ card, compact = false, playerName: playerNa
         </div>
 
         <div className="relative mt-2 aspect-[4/5] overflow-hidden rounded-2xl bg-black/10">
-          <img src={playerPhoto || fallbackAvatarUrl} alt={playerName} className="h-full w-full object-cover object-top" loading="lazy" />
+          <Image
+            src={playerPhoto || fallbackAvatarUrl}
+            alt={playerName}
+            fill
+            sizes={compact ? "176px" : "320px"}
+            className="object-cover object-top"
+            unoptimized
+          />
         </div>
 
         <div className="mt-3 text-center">

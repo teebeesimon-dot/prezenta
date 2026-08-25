@@ -15,14 +15,9 @@ export default function AdminPlayerCardsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!isSuperAdmin) {
-      setLoading(false);
-      return;
-    }
+    if (!isSuperAdmin) return;
 
     let active = true;
-    setLoading(true);
-    setError("");
 
     getAllGroupsForAdmin()
       .then((items) => {

@@ -89,10 +89,15 @@ service cloud.firestore {
       function validVoteId() { return voteId == request.resource.data.groupId + '_' + request.resource.data.stageId + '_' + request.resource.data.awardId + '_' + request.resource.data.voterUserId; }
       function voterIsMember() { return exists(/databases/$(database)/documents/members/$(request.resource.data.groupId + '_' + request.auth.uid)); }
       function candidateIsMember() { return exists(/databases/$(database)/documents/members/$(request.resource.data.groupId + '_' + request.resource.data.candidateUserId)); }
-      function votingIsOpen() { return get(/databases/$(database)/documents/stageConfigs/$(request.resource.data.stageId)).data.votingOpen == true; }
+      function stageConfig() { return get(/databases/$(database)/documents/stageConfigs/$(request.resource.data.stageId)); }
+      function votingIsOpen() { return stageConfig().data.votingOpen == true; }
+      function voteMatchesStageConfig() {
+        return stageConfig().data.groupId == request.resource.data.groupId
+          && request.resource.data.awardId in stageConfig().data.awardIds;
+      }
       allow get: if isAuthenticated() && (isSuperAdmin() || resource.data.voterUserId == request.auth.uid);
       allow list: if isSuperAdmin() || (isAuthenticated() && resource.data.voterUserId == request.auth.uid);
-      allow create: if isAuthenticated() && request.resource.data.voterUserId == request.auth.uid && validVoteId() && voterIsMember() && candidateIsMember() && votingIsOpen() && request.resource.data.keys().hasAll(['groupId', 'stageId', 'awardId', 'voterUserId', 'candidateUserId', 'createdAt']);
+      allow create: if isAuthenticated() && request.resource.data.voterUserId == request.auth.uid && validVoteId() && voterIsMember() && candidateIsMember() && votingIsOpen() && voteMatchesStageConfig() && request.resource.data.keys().hasOnly(['groupId', 'stageId', 'awardId', 'voterUserId', 'candidateUserId', 'createdAt']);
       allow update, delete: if false;
     }
 

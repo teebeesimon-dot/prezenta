@@ -26,7 +26,11 @@ export async function GET(request: NextRequest) {
   const hairStyle = hash % 3;
   const beard = (hash >>> 16) % 3 === 0;
   const eyeOffset = 18 + (hash % 5);
-  const initial = name.trim().charAt(0).toUpperCase() || "J";
+  const initial = name
+    .normalize("NFKD")
+    .replace(/[^a-zA-Z]/g, "")
+    .charAt(0)
+    .toUpperCase() || "J";
 
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 400">

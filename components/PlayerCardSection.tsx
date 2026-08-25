@@ -55,7 +55,32 @@ export default function PlayerCardSection({ groupId }: { groupId: string }) {
       ]);
       if (!active) return;
       setBaseCard(baseSnap.empty ? null : (baseSnap.docs[0].data() as PlayerCardData));
-      const cards = stageSnap.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() as Omit<StageCard, "id">) })).sort((a, b) => b.stageNumber - a.stageNumber);
+      const cards = stageSnap.docs
+        .map((docSnap) => {
+          const data = docSnap.data() as Partial<StageCard>;
+          return {
+            ...data,
+            id: docSnap.id,
+            groupId,
+            stageId: data.stageId ?? `${groupId}_stage_${data.stageNumber ?? 1}`,
+            stageNumber: data.stageNumber ?? 1,
+            userId: data.userId ?? user.uid,
+            playerName: data.playerName?.trim() || "Jucator",
+            playerPhoto: data.playerPhoto ?? null,
+            overall: data.overall ?? 65,
+            position: data.position ?? "MID",
+            pace: data.pace ?? 65,
+            shooting: data.shooting ?? 65,
+            passing: data.passing ?? 65,
+            dribbling: data.dribbling ?? 65,
+            defending: data.defending ?? 65,
+            physical: data.physical ?? 65,
+            jerseyNumber: data.jerseyNumber ?? null,
+            awardIds: data.awardIds ?? [],
+            awards: data.awards ?? [],
+          } satisfies StageCard;
+        })
+        .sort((a, b) => b.stageNumber - a.stageNumber);
       setActiveStageCard(cards.find((card) => card.stageNumber === currentStageNumber) ?? null);
       setHistory(cards.filter((card) => card.stageNumber < currentStageNumber));
     })();
