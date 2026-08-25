@@ -1,13 +1,12 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
   serverTimestamp,
   setDoc,
-  Timestamp,
-  updateDoc,
   where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -44,6 +43,17 @@ export interface StageAward {
   winnerName: string;
   winnerPhoto: string | null;
   votes: number;
+}
+
+export interface StageConfig {
+  id: string;
+  groupId: string;
+  stageNumber: number;
+  awardIds: string[];
+  votingOpen: boolean;
+  published: boolean;
+  createdAt?: unknown;
+  updatedAt?: unknown;
 }
 
 export interface StageCard {
@@ -101,40 +111,28 @@ export const defaultPlayerCard = (userId: string, groupId: string): PlayerCardDa
   jerseyNumber: null,
 });
 
-export async function savePlayerCard(
-  card: PlayerCardData,
-  updatedBy: string
-): Promise<void> {
+export async function savePlayerCard(card: PlayerCardData, updatedBy: string): Promise<void> {
   const ref = doc(db, "playerCards", `${card.groupId}_${card.userId}`);
-  await setDoc(
-    ref,
-    {
-      ...card,
-      overall: clampRating(card.overall),
-      pace: clampRating(card.pace),
-      shooting: clampRating(card.shooting),
-      passing: clampRating(card.passing),
-      dribbling: clampRating(card.dribbling),
-      defending: clampRating(card.defending),
-      physical: clampRating(card.physical),
-      updatedBy,
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
+  await setDoc(ref, {
+    ...card,
+    overall: clampRating(card.overall),
+    pace: clampRating(card.pace),
+    shooting: clampRating(card.shooting),
+    passing: clampRating(card.passing),
+    dribbling: clampRating(card.dribbling),
+    defending: clampRating(card.defending),
+    physical: clampRating(card.physical),
+    updatedBy,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
 }
 
 export async function getPlayerCards(groupId: string): Promise<PlayerCardData[]> {
-  const snap = await getDocs(
-    query(collection(db, "playerCards"), where("groupId", "==", groupId))
-  );
+  const snap = await getDocs(query(collection(db, "playerCards"), where("groupId", "==", groupId)));
   return snap.docs.map((d) => d.data() as PlayerCardData);
 }
 
-export function subscribePlayerCards(
-  groupId: string,
-  onChange: (cards: PlayerCardData[]) => void
-): () => void {
+export function subscribePlayerCards(groupId: string, onChange: (cards: PlayerCardData[]) => void): () => void {
   if (!groupId) {
     onChange([]);
     return () => {};
@@ -146,20 +144,37 @@ export function subscribePlayerCards(
   );
 }
 
+function stageConfigId(groupId: string, stageNumber: number): string {
+  return `${groupId}_stage_${stageNumber}`;
+}
+
+export async function saveStageConfig(params: {
+  groupId: string;
+  stageNumber: number;
+  awardIds: string[];
+  votingOpen: boolean;
+  published?: boolean;
+}): Promise<void> {
+  const ref = doc(db, "stageConfigs", stageConfigId(params.groupId, params.stageNumber));
+  await setDoc(ref, {
+    id: ref.id,
+    groupId: params.groupId,
+    stageNumber: params.stageNumber,
+    awardIds: params.awardIds,
+    votingOpen: params.votingOpen,
+    published: params.published ?? false,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+export async function getStageConfig(groupId: string, stageNumber: number): Promise<StageConfig | null> {
+  const snap = await getDoc(doc(db, "stageConfigs", stageConfigId(groupId, stageNumber)));
+  return snap.exists() ? (snap.data() as StageConfig) : null;
+}
+
 export async function upsertStageCard(stageCard: Omit<StageCard, "id" | "createdAt">): Promise<void> {
-  const ref = doc(
-    db,
-    "stageCards",
-    `${stageCard.groupId}_${stageCard.stageId}_${stageCard.userId}`
-  );
-  await setDoc(
-    ref,
-    {
-      ...stageCard,
-      createdAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
+  const ref = doc(db, "stageCards", `${stageCard.groupId}_${stageCard.stageId}_${stageCard.userId}`);
+  await setDoc(ref, { ...stageCard, createdAt: serverTimestamp() }, { merge: true });
 }
 
 export async function createStageVote(params: {
@@ -169,22 +184,16 @@ export async function createStageVote(params: {
   voterUserId: string;
   candidateUserId: string;
 }): Promise<void> {
-  const ref = doc(
-    db,
-    "stageVotes",
-    `${params.groupId}_${params.stageId}_${params.awardId}_${params.voterUserId}`
-  );
+  const ref = doc(db, "stageVotes", `${params.groupId}_${params.stageId}_${params.awardId}_${params.voterUserId}`);
   await setDoc(ref, { ...params, createdAt: serverTimestamp() }, { merge: false });
 }
 
 export async function getStageVotes(groupId: string, stageId: string) {
-  const snap = await getDocs(
-    query(
-      collection(db, "stageVotes"),
-      where("groupId", "==", groupId),
-      where("stageId", "==", stageId)
-    )
-  );
+  const snap = await getDocs(query(
+    collection(db, "stageVotes"),
+    where("groupId", "==", groupId),
+    where("stageId", "==", stageId)
+  ));
   return snap.docs.map((d) => d.data() as {
     groupId: string;
     stageId: string;
