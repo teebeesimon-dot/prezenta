@@ -1,0 +1,92 @@
+name: One-time Firestore event cleanup
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - scripts/cleanup-firestore-events.mjs
+      - .github/workflows/cleanup-firestore-events.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firestore-event-maintenance
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Execute approved manifest and verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FIREBASE_PROJECT_ID: ne-adunam
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+      CLEANUP_CONFIRMATION: DELETE_23_EVENTS_119_RESPONSES_1_MEMBER_KEEP_2_EVENTS
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Require deployment credential
+        shell: bash
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::error::Missing repository secret FIREBASE_SERVICE_ACCOUNT_JSON."
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          project_id: ${{ env.FIREBASE_PROJECT_ID }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run fresh read-only preflight audit
+        run: node scripts/audit-firestore-events.mjs firestore-event-audit-before.json
+
+      - name: Execute exact approved cleanup
+        run: node scripts/cleanup-firestore-events.mjs firestore-event-audit-before.json
+
+      - name: Run read-only verification audit
+        run: node scripts/audit-firestore-events.mjs firestore-event-audit-after.json
+
+      - name: Verify final state
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const report = require('./firestore-event-audit-after.json')
+          const protectedIds = report.protectedEvents.map(({ id }) => id).sort()
+          const expected = ['FyHjMfq8sp2W90uI38ut', 'eCWio3E5cl50SU95fXYT'].sort()
+          if (JSON.stringify(protectedIds) !== JSON.stringify(expected)) throw new Error('Protected events are not intact')
+          if (report.candidateEvents.length !== 0) throw new Error('Old events remain after cleanup')
+          if (report.ambiguousReferences.length !== 0) throw new Error('Ambiguous references remain')
+          if (report.inventory.byCollection.events !== 2) throw new Error('Expected exactly 2 events')
+          if (report.inventory.byCollection.responses !== 19) throw new Error('Expected 19 protected responses')
+          if (report.inventory.byCollection.members !== 56) throw new Error('Expected 56 production members')
+          if (report.inventory.byCollection.series !== 2) throw new Error('Expected 2 production series')
+          if (report.inventory.byCollection.users !== 42) throw new Error('Expected 42 users')
+          if (report.inventory.byCollection.subscriptions !== 8) throw new Error('Expected 8 subscriptions')
+          if (report.inventory.byCollection.playerCards !== 1) throw new Error('Expected 1 player card')
+          console.log('Final Firestore state matches the approved manifest.')
+          NODE
+
+      - name: Upload cleanup evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firestore-event-cleanup-evidence
+          path: |
+            firestore-event-audit-before.json
+            firestore-event-cleanup-result.json
+            firestore-event-audit-after.json
+          if-no-files-found: warn
+          retention-days: 30
