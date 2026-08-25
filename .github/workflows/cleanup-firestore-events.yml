@@ -45,19 +45,28 @@ jobs:
           create_credentials_file: true
           export_environment_variables: true
 
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Run fresh read-only preflight audit
-        run: node scripts/audit-firestore-events.mjs firestore-event-audit-before.json
+        shell: bash
+        run: |
+          AUDIT_OUTPUT=firestore-event-audit-before.json FIRESTORE_ACCESS_TOKEN="$(gcloud auth print-access-token)" node scripts/audit-firestore-events.mjs
 
       - name: Execute exact approved cleanup
-        run: node scripts/cleanup-firestore-events.mjs firestore-event-audit-before.json
+        shell: bash
+        run: |
+          FIRESTORE_ACCESS_TOKEN="$(gcloud auth print-access-token)" node scripts/cleanup-firestore-events.mjs firestore-event-audit-before.json
 
       - name: Run read-only verification audit
-        run: node scripts/audit-firestore-events.mjs firestore-event-audit-after.json
+        shell: bash
+        run: |
+          AUDIT_OUTPUT=firestore-event-audit-after.json FIRESTORE_ACCESS_TOKEN="$(gcloud auth print-access-token)" node scripts/audit-firestore-events.mjs
 
       - name: Verify final state
         shell: bash

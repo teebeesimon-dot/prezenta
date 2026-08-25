@@ -39,16 +39,10 @@ function sameSet(actual, expected) {
   );
 }
 
-async function accessToken() {
-  const response = await fetch(
-    "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
-    { headers: { "Metadata-Flavor": "Google" } },
-  );
-  if (!response.ok)
-    throw new Error(
-      `Could not obtain Google access token (${response.status}).`,
-    );
-  return (await response.json()).access_token;
+function accessToken() {
+  const token = process.env.FIRESTORE_ACCESS_TOKEN;
+  if (!token) throw new Error("FIRESTORE_ACCESS_TOKEN is required.");
+  return token;
 }
 
 async function deleteDocument(path, token) {
@@ -128,7 +122,7 @@ if (
   );
 }
 
-const token = await accessToken();
+const token = accessToken();
 const deleted = [];
 for (const path of paths) {
   await deleteDocument(path, token);
