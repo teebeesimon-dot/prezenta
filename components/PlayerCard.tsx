@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import PrivateCardImage from "@/components/PrivateCardImage";
 import { getCardTier, type PlayerCardData, type StageCard } from "@/lib/player-cards";
 
 function tierClasses(tier: ReturnType<typeof getCardTier>) {
@@ -57,14 +58,18 @@ export default function PlayerCard({ card, compact = false, playerName: playerNa
         </div>
 
         <div className="relative mt-2 aspect-[4/5] overflow-hidden rounded-2xl bg-black/10">
-          <Image
-            src={playerPhoto || fallbackAvatarUrl}
-            alt={playerName}
-            fill
-            sizes={compact ? "176px" : "320px"}
-            className="object-cover object-top"
-            unoptimized
-          />
+          {card.cardImageUrl ? (
+            <PrivateCardImage pathname={card.cardImageUrl} alt={`Card ${playerName}`} className="h-full w-full object-cover" />
+          ) : (
+            <Image
+              src={playerPhoto || fallbackAvatarUrl}
+              alt={playerName}
+              fill
+              sizes={compact ? "176px" : "320px"}
+              className="object-cover object-top"
+              unoptimized
+            />
+          )}
         </div>
 
         <div className="mt-3 text-center">

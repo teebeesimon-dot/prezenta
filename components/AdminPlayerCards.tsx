@@ -16,6 +16,7 @@ import {
 } from "@/lib/player-cards";
 import { subscribeToGroupMembers, type Member } from "@/lib/members";
 import { suggestedOverall } from "@/lib/player-card-progression";
+import CardImageUploader from "@/components/CardImageUploader";
 
 const OUTFIELD_STAT_FIELDS: ReadonlyArray<[keyof OutfieldAttributes, string]> = [
   ["pace", "Viteză"],
@@ -186,6 +187,12 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
               className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5"
             />
           </label>
+
+          <div className="sm:col-span-2">
+            <div className="mb-2 text-sm font-medium text-foreground">Imagine card permanent</div>
+            <CardImageUploader groupId={groupId} userId={form.userId} variant="permanent" onUploaded={(pathname) => setForm({ ...form, cardImageUrl: pathname })} />
+            {form.cardImageUrl && <p className="mt-2 text-xs font-semibold text-primary">Imagine încărcată. Salvează cardul pentru a o publica.</p>}
+          </div>
 
           <div className="sm:col-span-2 flex items-center justify-between gap-3">
             {message ? <span className="text-sm text-muted-foreground">{message}</span> : <span />}

@@ -46,11 +46,9 @@ export default function PlayerCardSection({
 }) {
   const { user } = useAuth();
   const [currentStageNumber, setCurrentStageNumber] = useState(1);
-  const [baseCard, setBaseCard] = useState<PlayerCardData | null>(null);
-  const [activeStageCard, setActiveStageCard] = useState<StageCard | null>(
-    null,
-  );
-  const [history, setHistory] = useState<StageCard[]>([]);
+  const [allBaseCards, setAllBaseCards] = useState<PlayerCardData[]>([]);
+  const [allStageCards, setAllStageCards] = useState<StageCard[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [awardIds, setAwardIds] = useState<string[]>([]);
   const [votingOpen, setVotingOpen] = useState(false);
@@ -90,27 +88,12 @@ export default function PlayerCardSection({
     (async () => {
       try {
         const [baseSnap, stageSnap] = await Promise.all([
-          getDocs(
-            query(
-              collection(db, "playerCards"),
-              where("groupId", "==", groupId),
-              where("userId", "==", user.uid),
-            ),
-          ),
-          getDocs(
-            query(
-              collection(db, "stageCards"),
-              where("groupId", "==", groupId),
-              where("userId", "==", user.uid),
-            ),
-          ),
+          getDocs(query(collection(db, "playerCards"), where("groupId", "==", groupId))),
+          getDocs(query(collection(db, "stageCards"), where("groupId", "==", groupId))),
         ]);
         if (!active) return;
-        setBaseCard(
-          baseSnap.empty
-            ? null
-            : hydratePlayerCard(baseSnap.docs[0].data() as PlayerCardData),
-        );
+        const baseCards = baseSnap.docs.map((cardDoc) => hydratePlayerCard(cardDoc.data() as PlayerCardData));
+        setAllBaseCards(baseCards);
         const cards = stageSnap.docs
           .map((docSnap) => {
             const data = docSnap.data() as Partial<StageCard>;
@@ -124,6 +107,7 @@ export default function PlayerCardSection({
               userId: data.userId ?? user.uid,
               playerName: data.playerName?.trim() || "Jucator",
               playerPhoto: data.playerPhoto ?? null,
+              cardImageUrl: data.cardImageUrl ?? null,
               overall: data.overall ?? 65,
               position: data.position ?? "MID",
               pace: data.pace ?? 65,
@@ -144,12 +128,7 @@ export default function PlayerCardSection({
             } satisfies StageCard;
           })
           .sort((a, b) => b.stageNumber - a.stageNumber);
-        setActiveStageCard(
-          cards.find((card) => card.stageNumber === currentStageNumber) ?? null,
-        );
-        setHistory(
-          cards.filter((card) => card.stageNumber < currentStageNumber),
-        );
+        setAllStageCards(cards);
         setDataMessage("");
       } catch (error) {
         if (active)
@@ -166,9 +145,6 @@ export default function PlayerCardSection({
       active = false;
     };
   }, [user, groupId, currentStageNumber]);
-
-  const currentMember =
-    members.find((member) => member.userId === user?.uid) ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -241,47 +217,50 @@ export default function PlayerCardSection({
         </p>
       )}
 
-      {view !== "voting" && (baseCard || activeStageCard) && (
+      {view !== "voting" && allBaseCards.length > 0 && (
         <section className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div>
-            <h2 className="text-xl font-bold text-foreground">Cardul meu</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Cardul de baza si premiile castigate in etapele grupei.
-            </p>
+          <div className="flex flex-col gap-1">
+            <h2 className="text-xl font-bold text-foreground">Player Cards</h2>
+            <p className="text-sm text-muted-foreground">Galeria tuturor jucătorilor din grup. Apasă un card pentru detalii și istoric.</p>
           </div>
-          <div className="mt-5 flex flex-wrap gap-5">
-            {activeStageCard ? (
-              <div>
-                <div className="mb-2 text-xs font-bold uppercase tracking-wider text-primary">
-                  Card activ · Etapa {currentStageNumber}
-                </div>
-                <PlayerCard card={activeStageCard} />
-              </div>
-            ) : baseCard ? (
-              <PlayerCard
-                card={baseCard}
-                playerName={currentMember?.userName}
-                playerPhoto={currentMember?.userPhoto}
-              />
-            ) : null}
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {allBaseCards.map((card) => {
+              const member = members.find((item) => item.userId === card.userId);
+              const active = allStageCards.find((item) => item.userId === card.userId && item.stageNumber === currentStageNumber);
+              return (
+                <button key={card.userId} type="button" onClick={() => setSelectedUserId(card.userId)} className="flex flex-col items-center rounded-2xl border border-border bg-background p-2 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+                  <PlayerCard card={active ?? card} compact playerName={member?.userName} playerPhoto={member?.userPhoto} />
+                </button>
+              );
+            })}
           </div>
-          {history.length > 0 && (
-            <div className="mt-8">
-              <h3 className="text-lg font-bold text-foreground">Istoric</h3>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {history.map((card) => (
-                  <div key={card.id}>
-                    <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Etapa {card.stageNumber}
-                    </div>
-                    <PlayerCard card={card} compact />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </section>
       )}
+
+      {selectedUserId && (() => {
+        const permanent = allBaseCards.find((card) => card.userId === selectedUserId);
+        if (!permanent) return null;
+        const member = members.find((item) => item.userId === selectedUserId);
+        const specialCards = allStageCards.filter((card) => card.userId === selectedUserId);
+        const active = specialCards.find((card) => card.stageNumber === currentStageNumber);
+        return (
+          <div role="dialog" aria-modal="true" aria-label={`Card ${member?.userName ?? permanent.playerName ?? "jucător"}`} className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/60 p-4 sm:items-center" onClick={() => setSelectedUserId(null)}>
+            <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-border bg-background p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-center justify-between gap-4">
+                <div><h2 className="text-xl font-bold text-foreground">{member?.userName ?? permanent.playerName ?? "Jucător"}</h2><p className="text-sm text-muted-foreground">Card activ și istoric</p></div>
+                <button type="button" onClick={() => setSelectedUserId(null)} className="rounded-xl border border-border px-3 py-2 text-sm font-bold text-foreground">Închide</button>
+              </div>
+              <div className="mt-5 flex flex-col gap-6 md:flex-row">
+                <PlayerCard card={active ?? permanent} playerName={member?.userName} playerPhoto={member?.userPhoto} />
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-foreground">Istoric carduri speciale</h3>
+                  {specialCards.length ? <div className="mt-3 grid grid-cols-2 gap-3">{specialCards.map((card) => <div key={card.id}><p className="mb-1 text-xs font-bold text-muted-foreground">Etapa {card.stageNumber}</p><PlayerCard card={card} compact /></div>)}</div> : <p className="mt-2 text-sm text-muted-foreground">Nu există carduri speciale.</p>}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {view !== "cards" && votingOpen && awardIds.length > 0 && user && (
         <section className="mt-8 rounded-2xl border border-primary/20 bg-card p-5 shadow-sm">
@@ -324,7 +303,7 @@ export default function PlayerCardSection({
                         className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
                       >
                         <option value="">Selecteaza jucatorul</option>
-                        {members.map((member) => (
+                        {members.filter((member) => member.userId !== user.uid).map((member) => (
                           <option key={member.userId} value={member.userId}>
                             {member.userName}
                           </option>

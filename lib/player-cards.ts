@@ -73,6 +73,7 @@ export interface PlayerCardData extends OutfieldAttributes, GoalkeeperAttributes
   groupId: string;
   playerName?: string;
   playerPhoto?: string | null;
+  cardImageUrl?: string | null;
   overall: number;
   position: PlayerPosition;
   jerseyNumber?: number | null;
@@ -108,6 +109,7 @@ export interface StageCard {
   userId: string;
   playerName: string;
   playerPhoto: string | null;
+  cardImageUrl?: string | null;
   overall: number;
   position: PlayerPosition;
   pace: number;
@@ -205,6 +207,7 @@ export async function savePlayerCard(card: PlayerCardData, updatedBy: string): P
     groupId: hydrated.groupId,
     playerName: hydrated.playerName ?? null,
     playerPhoto: hydrated.playerPhoto ?? null,
+    cardImageUrl: hydrated.cardImageUrl ?? null,
     overall: clampRating(hydrated.overall),
     position: hydrated.position,
     jerseyNumber: hydrated.jerseyNumber ?? null,

@@ -225,6 +225,7 @@ export default function AdminStageAwards({
           userId: winnerUserId,
           playerName: awards[0].winnerName,
           playerPhoto: awards[0].winnerPhoto,
+          cardImageUrl: progressedCard.cardImageUrl ?? null,
           overall: progressedCard.overall,
           position: progressedCard.position,
           pace: progressedCard.pace,
