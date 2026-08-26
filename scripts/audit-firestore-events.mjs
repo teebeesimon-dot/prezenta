@@ -283,6 +283,42 @@ const historicalEventExistence = Object.fromEntries(
     eventDocuments.some((document) => document.id === id),
   ]),
 );
+const linkageCollections = new Set([
+  "events",
+  "members",
+  "responses",
+  "playerCards",
+  "users",
+  "series",
+  "subscriptions",
+]);
+const collectionLinkageInventory = Object.fromEntries(
+  [...linkageCollections].map((collection) => {
+    const documents = allDocuments.filter(
+      (document) => document.collection === collection,
+    );
+    return [
+      collection,
+      {
+        count: documents.length,
+        fieldNames: [
+          ...new Set(
+            documents.flatMap((document) => Object.keys(document.data)),
+          ),
+        ].sort(),
+        links: documents.map((document) => ({
+          path: document.path,
+          eventId: document.data.eventId ?? null,
+          seriesId: document.data.seriesId ?? null,
+          groupId: document.data.groupId ?? null,
+          userId: document.data.userId ?? null,
+          hasPayments: document.data.payments !== undefined,
+          hasTeams: document.data.teams !== undefined,
+        })),
+      },
+    ];
+  }),
+);
 
 const byCollection = Object.fromEntries(
   [...new Set(allDocuments.map((document) => document.collection))]
@@ -333,6 +369,7 @@ const report = {
     eventDocumentExists: historicalEventExistence,
     matchedDocumentCount: historicalMatches.length,
     matchedDocumentsByCollection: historicalMatchesByCollection,
+    collectionLinkageInventory,
   },
   inventory: { totalDocuments: allDocuments.length, byCollection },
 };
