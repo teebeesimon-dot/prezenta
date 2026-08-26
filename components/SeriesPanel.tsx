@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
 import { formatEventDateShort } from "@/lib/events";
+import {
+  getHistoricalSeriesEvents,
+  type HistoricalSeriesEvent,
+} from "@/lib/historical-series-events";
 import { formatLei } from "@/lib/pricing";
 import { RECURRENCE_OPTIONS, todayISO } from "@/lib/recurrence";
 import {
@@ -21,6 +25,20 @@ interface SeriesPanelProps {
   /** The occurrence currently being viewed. */
   currentViewedEventId: string;
   isOwner: boolean;
+}
+
+type SeriesOccurrence =
+  | { kind: "live"; event: Event }
+  | { kind: "archived"; event: HistoricalSeriesEvent };
+
+function compactDate(date: string): string {
+  return new Intl.DateTimeFormat("ro-RO", {
+    day: "2-digit",
+    month: "short",
+  })
+    .format(new Date(`${date}T12:00:00`))
+    .replace(".", "")
+    .toLocaleUpperCase("ro-RO");
 }
 
 function frequencyLabel(frequency: Series["frequency"]): string {
@@ -48,7 +66,7 @@ export default function SeriesPanel({
         if (snap.exists()) setSeries(mapFirestoreSeries(snap.id, snap.data()));
         else setSeries(null);
       },
-      () => setSeries(null)
+      () => setSeries(null),
     );
     return () => unsub();
   }, [seriesId]);
@@ -73,6 +91,13 @@ export default function SeriesPanel({
 
   const today = todayISO();
   const isClosed = series.status === "closed";
+  const liveIds = new Set(history.map((event) => event.id));
+  const occurrences: SeriesOccurrence[] = [
+    ...getHistoricalSeriesEvents(seriesId)
+      .filter((event) => !liveIds.has(event.eventId))
+      .map((event): SeriesOccurrence => ({ kind: "archived", event })),
+    ...history.map((event): SeriesOccurrence => ({ kind: "live", event })),
+  ].sort((a, b) => a.event.date.localeCompare(b.event.date));
 
   async function handleClose() {
     if (!series) return;
@@ -151,7 +176,9 @@ export default function SeriesPanel({
         <p className="mt-4 text-sm text-muted-foreground">
           Abonament lunar:{" "}
           <span className="font-semibold text-card-foreground">
-            {series.monthlyPrice ? formatLei(series.monthlyPrice) : "nestabilit"}
+            {series.monthlyPrice
+              ? formatLei(series.monthlyPrice)
+              : "nestabilit"}
           </span>{" "}
           / jucător
         </p>
@@ -165,34 +192,69 @@ export default function SeriesPanel({
       )}
 
       <div className="mt-5">
-        <label
-          htmlFor="series-history"
-          className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-        >
-          Istoric apariții
-        </label>
-        <select
-          id="series-history"
-          value={currentViewedEventId}
-          onChange={(e) => router.push(`/event/${e.target.value}`)}
-          className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground"
-        >
-          {history.map((occ) => {
-            const isNext = occ.id === series.currentEventId;
-            const isUpcoming = occ.date >= today;
-            const label = `${formatEventDateShort(occ.date)}${
-              isNext ? " · Următoarea" : isUpcoming ? " · Urmează" : ""
-            }`;
-            return (
-              <option key={occ.id} value={occ.id}>
-                {label}
-              </option>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Istoric meciuri
+        </h2>
+        <div className="mt-2 overflow-hidden rounded-xl border border-border bg-background">
+          {occurrences.map((occurrence) => {
+            const event = occurrence.event;
+            const isArchived = occurrence.kind === "archived";
+            const eventId = isArchived
+              ? occurrence.event.eventId
+              : occurrence.event.id;
+            const isCurrent = !isArchived && eventId === currentViewedEventId;
+            const isFuture = !isArchived && event.date > today;
+            const status = isArchived
+              ? "Istoric"
+              : isCurrent
+                ? "Actual"
+                : isFuture
+                  ? "Viitor"
+                  : "Istoric";
+            const content = (
+              <>
+                <span className="w-14 shrink-0 font-mono text-xs font-bold text-foreground">
+                  {compactDate(event.date)}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
+                  {event.title}
+                </span>
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                    status === "Actual"
+                      ? "bg-primary text-primary-foreground"
+                      : status === "Viitor"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {status}
+                </span>
+              </>
+            );
+
+            return isArchived ? (
+              <div
+                key={eventId}
+                className="flex items-center gap-3 border-b border-border px-3 py-3 last:border-b-0"
+              >
+                {content}
+              </div>
+            ) : (
+              <button
+                key={eventId}
+                type="button"
+                onClick={() => router.push(`/event/${eventId}`)}
+                className="flex w-full items-center gap-3 border-b border-border px-3 py-3 text-left transition last:border-b-0 hover:bg-muted/60"
+              >
+                {content}
+              </button>
             );
           })}
-        </select>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Selectează o apariție anterioară pentru a-i vedea detaliile și
-          prezența.
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          Aparițiile arhivate sunt informative. Doar evenimentele active pot fi
+          deschise.
         </p>
       </div>
 
