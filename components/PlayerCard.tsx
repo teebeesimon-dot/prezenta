@@ -22,6 +22,8 @@ export default function PlayerCard({ card, compact = false, playerName: playerNa
   const playerName = playerNameProp?.trim() || card.playerName?.trim() || "Jucator";
   const playerPhoto = playerPhotoProp ?? card.playerPhoto ?? null;
   const awards = isStage ? card.awards : [];
+  const form = !isStage ? card.form : undefined;
+  const formLabel = form === "in_form" ? "Formă bună" : form === "out_of_form" ? "Formă scăzută" : "Formă stabilă";
   const stats = card.position === "GK"
     ? [
         ["DIV", card.diving],
@@ -67,6 +69,9 @@ export default function PlayerCard({ card, compact = false, playerName: playerNa
 
         <div className="mt-3 text-center">
           <div className="truncate text-xl font-black uppercase tracking-tight">{playerName}</div>
+          {!isStage && form && (
+            <div className="mt-2 text-[10px] font-extrabold uppercase tracking-wider opacity-75">{formLabel}</div>
+          )}
           {isStage && awards.length > 0 && (
             <div className="mt-2 flex flex-wrap justify-center gap-1">
               {awards.map((award) => <span key={award.awardId} className="rounded-full bg-black/10 px-2 py-1 text-[10px] font-bold">{award.label}</span>)}

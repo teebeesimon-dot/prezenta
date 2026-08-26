@@ -12,6 +12,13 @@ import {
 } from "firebase/firestore";
 import { FirebaseError } from "firebase/app";
 import { db } from "@/lib/firebase";
+import { assertGroupOwner } from "@/lib/group-ownership";
+import {
+  applyDeltas,
+  awardDeltas,
+  classifyForm,
+  suggestedOverall,
+} from "@/lib/player-card-progression";
 
 const FIRESTORE_ERROR_MESSAGES: Record<string, string> = {
   "permission-denied": "Nu ai permisiunea necesară. Verifică rolul de administrator și regulile Firestore publicate.",
@@ -69,8 +76,25 @@ export interface PlayerCardData extends OutfieldAttributes, GoalkeeperAttributes
   overall: number;
   position: PlayerPosition;
   jerseyNumber?: number | null;
+  suggestedOverall?: number;
+  form?: "in_form" | "stable" | "out_of_form";
   updatedAt?: unknown;
   updatedBy?: string;
+}
+
+export interface PlayerCardHistoryEntry {
+  id: string;
+  groupId: string;
+  userId: string;
+  stageId?: string | null;
+  stageNumber?: number | null;
+  reason: "manual" | "award";
+  before: PlayerCardData;
+  after: PlayerCardData;
+  deltas?: Array<{ key: string; amount: number }>;
+  awardIds?: string[];
+  createdAt?: unknown;
+  createdBy: string;
 }
 
 export interface StageAwardDefinition { id: string; label: string; description?: string; }
@@ -169,6 +193,12 @@ export function hydratePlayerCard(card: PlayerCardData): PlayerCardData {
 }
 
 export async function savePlayerCard(card: PlayerCardData, updatedBy: string): Promise<void> {
+  await assertGroupOwner(card.groupId, updatedBy);
+  const ref = doc(db, "playerCards", `${card.groupId}_${card.userId}`);
+  const existing = await getDoc(ref);
+  const before = hydratePlayerCard(
+    existing.exists() ? (existing.data() as PlayerCardData) : defaultPlayerCard(card.userId, card.groupId),
+  );
   const hydrated = hydratePlayerCard(card);
   const shared = {
     userId: hydrated.userId,
@@ -192,7 +222,26 @@ export async function savePlayerCard(card: PlayerCardData, updatedBy: string): P
         dribbling: clampRating(hydrated.dribbling), defending: clampRating(hydrated.defending), physical: clampRating(hydrated.physical),
         ...Object.fromEntries(GOALKEEPER_KEYS.map((key) => [key, deleteField()])),
       };
-  await setDoc(doc(db, "playerCards", `${card.groupId}_${card.userId}`), { ...shared, ...attributes }, { merge: true });
+  const after = hydratePlayerCard({
+    ...hydrated,
+    overall: shared.overall,
+    suggestedOverall: suggestedOverall(hydrated),
+    form: hydrated.form ?? "stable",
+  });
+  await setDoc(ref, { ...shared, ...attributes, suggestedOverall: after.suggestedOverall, form: after.form }, { merge: true });
+  const historyRef = doc(collection(db, "playerCardHistory"));
+  await setDoc(historyRef, {
+    id: historyRef.id,
+    groupId: card.groupId,
+    userId: card.userId,
+    stageId: null,
+    stageNumber: null,
+    reason: "manual",
+    before,
+    after,
+    createdAt: serverTimestamp(),
+    createdBy: updatedBy,
+  });
 }
 export async function getPlayerCards(groupId: string): Promise<PlayerCardData[]> { const snap = await getDocs(query(collection(db, "playerCards"), where("groupId", "==", groupId))); return snap.docs.map((d) => hydratePlayerCard(d.data() as PlayerCardData)); }
 export function subscribePlayerCards(
@@ -213,17 +262,92 @@ export function subscribePlayerCards(
 }
 
 function stageConfigId(groupId: string, stageNumber: number): string { return `${groupId}_stage_${stageNumber}`; }
-export async function saveStageConfig(params: { groupId: string; stageNumber: number; awardIds: string[]; votingOpen: boolean; published?: boolean }): Promise<void> {
+export async function saveStageConfig(params: { groupId: string; stageNumber: number; awardIds: string[]; votingOpen: boolean; published?: boolean; updatedBy: string }): Promise<void> {
+  await assertGroupOwner(params.groupId, params.updatedBy);
   const ref = doc(db, "stageConfigs", stageConfigId(params.groupId, params.stageNumber));
   await setDoc(ref, { id: ref.id, groupId: params.groupId, stageNumber: params.stageNumber, awardIds: params.awardIds, votingOpen: params.votingOpen, published: params.published ?? false, updatedAt: serverTimestamp() }, { merge: true });
 }
 export async function getStageConfig(groupId: string, stageNumber: number): Promise<StageConfig | null> { const snap = await getDoc(doc(db, "stageConfigs", stageConfigId(groupId, stageNumber))); return snap.exists() ? (snap.data() as StageConfig) : null; }
-export async function upsertStageCard(stageCard: Omit<StageCard, "id" | "createdAt">): Promise<void> { await setDoc(doc(db, "stageCards", `${stageCard.groupId}_${stageCard.stageId}_${stageCard.userId}`), { ...stageCard, createdAt: serverTimestamp() }, { merge: true }); }
-export async function createStageVote(params: { groupId: string; stageId: string; awardId: string; voterUserId: string; candidateUserId: string }): Promise<void> { await setDoc(doc(db, "stageVotes", `${params.groupId}_${params.stageId}_${params.awardId}_${params.voterUserId}`), { ...params, createdAt: serverTimestamp() }, { merge: false }); }
+export async function upsertStageCard(stageCard: Omit<StageCard, "id" | "createdAt">, updatedBy: string): Promise<void> {
+  await assertGroupOwner(stageCard.groupId, updatedBy);
+  await setDoc(doc(db, "stageCards", `${stageCard.groupId}_${stageCard.stageId}_${stageCard.userId}`), { ...stageCard, activeFrom: serverTimestamp(), activeUntil: null, createdAt: serverTimestamp() }, { merge: true });
+}
+export async function createStageVote(params: { groupId: string; stageId: string; awardId: string; voterUserId: string; candidateUserId: string }): Promise<void> {
+  if (params.voterUserId === params.candidateUserId) throw new Error("Nu te poți vota pe tine.");
+  await setDoc(doc(db, "stageVotes", `${params.groupId}_${params.stageId}_${params.awardId}_${params.voterUserId}`), { ...params, createdAt: serverTimestamp() }, { merge: false });
+}
 
 export async function getStageVotes(groupId: string, stageId: string) {
   const snap = await getDocs(query(collection(db, "stageVotes"), where("groupId", "==", groupId), where("stageId", "==", stageId)));
   return snap.docs.map((d) => d.data() as { groupId: string; stageId: string; awardId: string; voterUserId: string; candidateUserId: string; });
+}
+
+export async function applyStageAwardsToPlayer(params: {
+  groupId: string;
+  stageId: string;
+  stageNumber: number;
+  userId: string;
+  awardIds: string[];
+  updatedBy: string;
+}): Promise<PlayerCardData> {
+  await assertGroupOwner(params.groupId, params.updatedBy);
+  const historyId = `${params.groupId}_${params.stageId}_${params.userId}_award`;
+  const historyRef = doc(db, "playerCardHistory", historyId);
+  const existingHistory = await getDoc(historyRef);
+  const cardRef = doc(db, "playerCards", `${params.groupId}_${params.userId}`);
+  const cardSnap = await getDoc(cardRef);
+  const before = hydratePlayerCard(cardSnap.exists()
+    ? (cardSnap.data() as PlayerCardData)
+    : defaultPlayerCard(params.userId, params.groupId));
+  if (existingHistory.exists()) {
+    return hydratePlayerCard((existingHistory.data() as PlayerCardHistoryEntry).after);
+  }
+  const deltas = awardDeltas(params.awardIds, before.position);
+  const afterWithBonus = applyDeltas(before, deltas);
+  const previousHistory = await getDocs(query(
+    collection(db, "playerCardHistory"),
+    where("groupId", "==", params.groupId),
+    where("userId", "==", params.userId),
+  ));
+  const recentDeltas = previousHistory.docs
+    .map((entry) => entry.data() as PlayerCardHistoryEntry)
+    .filter((entry) => entry.reason === "award")
+    .sort((a, b) => Number(a.stageNumber ?? 0) - Number(b.stageNumber ?? 0))
+    .slice(-2)
+    .map((entry) => entry.after.overall - entry.before.overall);
+  const after = hydratePlayerCard({
+    ...afterWithBonus,
+    suggestedOverall: suggestedOverall(afterWithBonus),
+    form: classifyForm([...recentDeltas, afterWithBonus.overall - before.overall]),
+    updatedBy: params.updatedBy,
+  });
+  await setDoc(cardRef, { ...after, updatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(historyRef, {
+    id: historyId,
+    groupId: params.groupId,
+    userId: params.userId,
+    stageId: params.stageId,
+    stageNumber: params.stageNumber,
+    reason: "award",
+    before,
+    after,
+    deltas,
+    awardIds: params.awardIds,
+    createdAt: serverTimestamp(),
+    createdBy: params.updatedBy,
+  });
+  return after;
+}
+
+export async function getPlayerCardHistory(groupId: string, userId: string): Promise<PlayerCardHistoryEntry[]> {
+  const snap = await getDocs(query(
+    collection(db, "playerCardHistory"),
+    where("groupId", "==", groupId),
+    where("userId", "==", userId),
+  ));
+  return snap.docs
+    .map((entry) => entry.data() as PlayerCardHistoryEntry)
+    .sort((a, b) => Number(b.stageNumber ?? 0) - Number(a.stageNumber ?? 0));
 }
 
 export async function getMyStageVotes(groupId: string, stageId: string, userId: string) {

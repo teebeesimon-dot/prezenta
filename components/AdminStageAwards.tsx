@@ -1,19 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthProvider";
 import { subscribeToGroupMembers, type Member } from "@/lib/members";
-import { db } from "@/lib/firebase";
 import {
   STAGE_AWARD_OPTIONS,
+  applyStageAwardsToPlayer,
   getStageConfig,
   getStageVotes,
-  hydratePlayerCard,
   reportPlayerCardsError,
   saveStageConfig,
   upsertStageCard,
-  type PlayerCardData,
   type StageAward,
 } from "@/lib/player-cards";
 
@@ -94,6 +91,7 @@ export default function AdminStageAwards({
         awardIds: selectedAwards,
         votingOpen: true,
         published: false,
+        updatedBy: user!.uid,
       });
       setVotingOpen(true);
       setPublished(false);
@@ -119,6 +117,7 @@ export default function AdminStageAwards({
         awardIds: selectedAwards,
         votingOpen: false,
         published: false,
+        updatedBy: user!.uid,
       });
       setVotingOpen(false);
       setMessage("Votarea a fost inchisa.");
@@ -211,7 +210,14 @@ export default function AdminStageAwards({
       }
 
       for (const [winnerUserId, awards] of winnersByUser) {
-        const card = await getExistingCard(groupId, winnerUserId);
+        const progressedCard = await applyStageAwardsToPlayer({
+          groupId,
+          stageId,
+          stageNumber,
+          userId: winnerUserId,
+          awardIds: awards.map((award) => award.awardId),
+          updatedBy: user.uid,
+        });
         await upsertStageCard({
           groupId,
           stageId,
@@ -219,24 +225,24 @@ export default function AdminStageAwards({
           userId: winnerUserId,
           playerName: awards[0].winnerName,
           playerPhoto: awards[0].winnerPhoto,
-          overall: card?.overall ?? 65,
-          position: card?.position ?? "MID",
-          pace: card?.pace ?? 65,
-          shooting: card?.shooting ?? 65,
-          passing: card?.passing ?? 65,
-          dribbling: card?.dribbling ?? 65,
-          defending: card?.defending ?? 65,
-          physical: card?.physical ?? 65,
-          diving: card?.diving ?? 65,
-          handling: card?.handling ?? 65,
-          kicking: card?.kicking ?? 65,
-          reflexes: card?.reflexes ?? 65,
-          speed: card?.speed ?? 65,
-          positioning: card?.positioning ?? 65,
-          jerseyNumber: card?.jerseyNumber ?? null,
+          overall: progressedCard.overall,
+          position: progressedCard.position,
+          pace: progressedCard.pace,
+          shooting: progressedCard.shooting,
+          passing: progressedCard.passing,
+          dribbling: progressedCard.dribbling,
+          defending: progressedCard.defending,
+          physical: progressedCard.physical,
+          diving: progressedCard.diving,
+          handling: progressedCard.handling,
+          kicking: progressedCard.kicking,
+          reflexes: progressedCard.reflexes,
+          speed: progressedCard.speed,
+          positioning: progressedCard.positioning,
+          jerseyNumber: progressedCard.jerseyNumber ?? null,
           awardIds: awards.map((award) => award.awardId),
           awards,
-        });
+        }, user.uid);
       }
 
       await saveStageConfig({
@@ -245,6 +251,7 @@ export default function AdminStageAwards({
         awardIds: selectedAwards,
         votingOpen: false,
         published: true,
+        updatedBy: user.uid,
       });
       setPublished(true);
       setVotingOpen(false);
@@ -384,16 +391,4 @@ export default function AdminStageAwards({
       )}
     </section>
   );
-}
-
-async function getExistingCard(groupId: string, userId: string) {
-  const snap = await getDocs(
-    query(
-      collection(db, "playerCards"),
-      where("groupId", "==", groupId),
-      where("userId", "==", userId),
-    ),
-  );
-  if (snap.empty) return null;
-  return hydratePlayerCard(snap.docs[0].data() as PlayerCardData);
 }

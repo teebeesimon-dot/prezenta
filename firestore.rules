@@ -31,6 +31,16 @@ service cloud.firestore {
       return userExists() && userRole() == 'organizer';
     }
 
+    function isGroupOwner(groupId) {
+      return isAuthenticated()
+        && (
+          (exists(/databases/$(database)/documents/series/$(groupId))
+            && get(/databases/$(database)/documents/series/$(groupId)).data.ownerId == request.auth.uid)
+          || (exists(/databases/$(database)/documents/events/$(groupId))
+            && get(/databases/$(database)/documents/events/$(groupId)).data.ownerId == request.auth.uid)
+        );
+    }
+
     function isSeriesMember(seriesId) {
       return isAuthenticated()
         && exists(/databases/$(database)/documents/members/$(seriesId + '_' + request.auth.uid));
@@ -135,23 +145,24 @@ match /playerCards/{cardId} {
 
   function validCardFields() {
     return request.resource.data.keys().hasAll([
-      'groupId', 'userId', 'overall', 'position', 'pace', 'shooting',
-      'passing', 'dribbling', 'defending', 'physical', 'updatedBy', 'updatedAt'
+      'groupId', 'userId', 'overall', 'position', 'updatedBy', 'updatedAt'
     ]) && request.resource.data.keys().hasOnly([
       'groupId', 'userId', 'playerName', 'playerPhoto', 'overall', 'position',
       'pace', 'shooting', 'passing', 'dribbling', 'defending', 'physical',
-      'jerseyNumber', 'updatedBy', 'updatedAt'
+      'diving', 'handling', 'kicking', 'reflexes', 'speed', 'positioning',
+      'jerseyNumber', 'suggestedOverall', 'form', 'updatedBy', 'updatedAt'
     ]);
   }
 
   allow get, list: if isAuthenticated();
-  allow create: if isSuperAdmin() && validCardId() && validCardFields();
-  allow update: if isSuperAdmin()
+  allow create: if isGroupOwner(request.resource.data.groupId) && validCardId() && validCardFields() && request.resource.data.updatedBy == request.auth.uid;
+  allow update: if isGroupOwner(resource.data.groupId)
     && validCardId()
     && validCardFields()
+    && request.resource.data.updatedBy == request.auth.uid
     && request.resource.data.groupId == resource.data.groupId
     && request.resource.data.userId == resource.data.userId;
-  allow delete: if isSuperAdmin();
+  allow delete: if false;
   }
 
 match /stageConfigs/{stageId} {
@@ -169,14 +180,14 @@ match /stageConfigs/{stageId} {
   }
 
   allow get: if isAuthenticated();
-  allow list: if isSuperAdmin();
-  allow create: if isSuperAdmin() && validStageConfigId() && validStageConfigFields();
-  allow update: if isSuperAdmin()
+  allow list: if isAuthenticated();
+  allow create: if isGroupOwner(request.resource.data.groupId) && validStageConfigId() && validStageConfigFields();
+  allow update: if isGroupOwner(resource.data.groupId)
     && validStageConfigId()
     && validStageConfigFields()
     && request.resource.data.groupId == resource.data.groupId
     && request.resource.data.stageNumber == resource.data.stageNumber;
-  allow delete: if isSuperAdmin();
+  allow delete: if false;
   }
 
 match /stageCards/{cardId} {
@@ -198,14 +209,14 @@ match /stageCards/{cardId} {
   }
 
   allow get, list: if isAuthenticated();
-  allow create: if isSuperAdmin() && validStageCardId() && validStageCardFields();
-  allow update: if isSuperAdmin()
+  allow create: if isGroupOwner(request.resource.data.groupId) && validStageCardId() && validStageCardFields();
+  allow update: if isGroupOwner(resource.data.groupId)
     && validStageCardId()
     && validStageCardFields()
     && request.resource.data.groupId == resource.data.groupId
     && request.resource.data.stageId == resource.data.stageId
     && request.resource.data.userId == resource.data.userId;
-  allow delete: if isSuperAdmin();
+  allow delete: if false;
   }
 
     match /stageVotes/{voteId} {
@@ -218,9 +229,17 @@ match /stageCards/{cardId} {
         return stageConfig().data.groupId == request.resource.data.groupId
           && request.resource.data.awardId in stageConfig().data.awardIds;
       }
-      allow get: if isAuthenticated() && (isSuperAdmin() || resource.data.voterUserId == request.auth.uid);
-      allow list: if isSuperAdmin() || (isAuthenticated() && resource.data.voterUserId == request.auth.uid);
-      allow create: if isAuthenticated() && request.resource.data.voterUserId == request.auth.uid && validVoteId() && voterIsMember() && candidateIsMember() && votingIsOpen() && voteMatchesStageConfig() && request.resource.data.keys().hasOnly(['groupId', 'stageId', 'awardId', 'voterUserId', 'candidateUserId', 'createdAt']);
+      allow get: if isAuthenticated() && (isGroupOwner(resource.data.groupId) || resource.data.voterUserId == request.auth.uid);
+      allow list: if isAuthenticated() && (isGroupOwner(resource.data.groupId) || resource.data.voterUserId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.voterUserId == request.auth.uid && request.resource.data.candidateUserId != request.auth.uid && validVoteId() && voterIsMember() && candidateIsMember() && votingIsOpen() && voteMatchesStageConfig() && request.resource.data.keys().hasOnly(['groupId', 'stageId', 'awardId', 'voterUserId', 'candidateUserId', 'createdAt']);
+      allow update, delete: if false;
+    }
+
+    match /playerCardHistory/{historyId} {
+      allow get, list: if isAuthenticated();
+      allow create: if isGroupOwner(request.resource.data.groupId)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.keys().hasAll(['id', 'groupId', 'userId', 'reason', 'before', 'after', 'createdAt', 'createdBy']);
       allow update, delete: if false;
     }
 

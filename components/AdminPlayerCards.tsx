@@ -15,6 +15,7 @@ import {
   type PlayerPosition,
 } from "@/lib/player-cards";
 import { subscribeToGroupMembers, type Member } from "@/lib/members";
+import { suggestedOverall } from "@/lib/player-card-progression";
 
 const OUTFIELD_STAT_FIELDS: ReadonlyArray<[keyof OutfieldAttributes, string]> = [
   ["pace", "Viteză"],
@@ -75,7 +76,8 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
 
   const activeStatFields = form?.position === "GK" ? GOALKEEPER_STAT_FIELDS : OUTFIELD_STAT_FIELDS;
   const goalkeeperAverage = form?.position === "GK" ? goalkeeperAttributeAverage(form) : null;
-  const overallDifference = goalkeeperAverage === null || !form ? 0 : Math.abs(form.overall - goalkeeperAverage);
+  const recommendedOverall = form ? suggestedOverall(form) : null;
+  const overallDifference = recommendedOverall === null || !form ? 0 : Math.abs(form.overall - recommendedOverall);
   const formIsValid = Boolean(
     form && isRating(form.overall) && activeStatFields.every(([field]) => isRating(form[field]))
   );
@@ -145,12 +147,15 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
             </select>
           </label>
 
-          {form.position === "GK" && goalkeeperAverage !== null && (
+          {recommendedOverall !== null && (
             <div className="sm:col-span-2 rounded-xl border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
-              Media atributelor de portar este <strong className="text-foreground">{goalkeeperAverage}</strong>. OVR-ul rămâne manual.
+              OVR recomandat din atribute: <strong className="text-foreground">{recommendedOverall}</strong>. OVR-ul rămâne manual.
+              {form.position === "GK" && goalkeeperAverage !== null && (
+                <span className="ml-1">Media simplă GK: {goalkeeperAverage}.</span>
+              )}
               {overallDifference >= 8 && (
                 <span className="mt-1 block font-medium text-foreground">
-                  Verifică OVR-ul: diferența față de media atributelor este de {overallDifference} puncte.
+                  Verifică OVR-ul: diferența față de recomandare este de {overallDifference} puncte.
                 </span>
               )}
             </div>

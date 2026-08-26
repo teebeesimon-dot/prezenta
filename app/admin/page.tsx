@@ -24,19 +24,6 @@ export default function AdminPage() {
 
           <AdminPanel />
           <AdminGroupMembers />
-
-          <div className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="text-xl font-bold text-foreground">Player Cards</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Configureaza OVR, atribute, premii si votarea etapelor pentru grupele de fotbal.
-            </p>
-            <Link
-              href="/admin/player-cards"
-              className="mt-4 inline-flex rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover"
-            >
-              Deschide Player Cards
-            </Link>
-          </div>
         </div>
       </RequireSuperAdmin>
     </div>

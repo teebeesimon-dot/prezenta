@@ -15,6 +15,7 @@ import { db } from "@/lib/firebase";
 import { computeGoingLists, parseTimestamp } from "@/lib/going-list";
 import { getDefaultFootballFormat } from "@/lib/football-formats";
 import { generateRandomTeams } from "@/lib/teams";
+import { generateBalancedTeams, type TeamBalanceMetrics } from "@/lib/team-balance";
 import { subscribePlayerCards, type PlayerCardData } from "@/lib/player-cards";
 import type { GeneratedTeams, ParticipantEntry } from "@/lib/types";
 
@@ -25,29 +26,6 @@ interface TeamGeneratorProps {
   teams: GeneratedTeams | null | undefined;
   isOwner: boolean;
   groupId: string;
-}
-
-function generateBalancedTeams(
-  players: ParticipantEntry[],
-  cards: Map<string, PlayerCardData>,
-  teamCount: number,
-): ParticipantEntry[][] {
-  const result = Array.from(
-    { length: teamCount },
-    () => [] as ParticipantEntry[],
-  );
-  const totals = Array.from({ length: teamCount }, () => 0);
-  const sorted = [...players].sort(
-    (a, b) =>
-      (cards.get(b.userId)?.overall ?? 50) -
-      (cards.get(a.userId)?.overall ?? 50),
-  );
-  sorted.forEach((player) => {
-    const target = totals.indexOf(Math.min(...totals));
-    result[target].push(player);
-    totals[target] += cards.get(player.userId)?.overall ?? 50;
-  });
-  return result;
 }
 
 function ParticipantAvatar({
@@ -205,6 +183,7 @@ export default function TeamGenerator({
   const [movingPlayerId, setMovingPlayerId] = useState<string | null>(null);
   const [playerCards, setPlayerCards] = useState<PlayerCardData[]>([]);
   const [selectedCard, setSelectedCard] = useState<PlayerCardData | null>(null);
+  const [balanceMetrics, setBalanceMetrics] = useState<TeamBalanceMetrics | null>(null);
   const cardsByUser = useMemo(
     () => new Map(playerCards.map((card) => [card.userId, card])),
     [playerCards],
@@ -295,12 +274,13 @@ export default function TeamGenerator({
       const balanced = generateBalancedTeams(confirmed, cardsByUser, teamCount);
       await updateDoc(doc(db, "events", eventId), {
         teams: {
-          teamA: balanced[0] ?? [],
-          teamB: balanced[1] ?? [],
-          teams: balanced.map((players) => ({ players })),
+          teamA: balanced.teams[0] ?? [],
+          teamB: balanced.teams[1] ?? [],
+          teams: balanced.teams.map((players) => ({ players })),
           generatedAt: Timestamp.now(),
         },
       });
+      setBalanceMetrics(balanced.metrics);
     } catch {
       setError("Nu am putut genera echipele echilibrate.");
     } finally {
@@ -388,6 +368,24 @@ export default function TeamGenerator({
         <p className="mb-4 text-sm text-muted-foreground">
           Sunt necesari cel puțin 2 jucători confirmați pentru a genera echipe.
         </p>
+      )}
+
+      {balanceMetrics && (
+        <div className="mb-4 flex flex-wrap gap-2 text-xs font-semibold">
+          {balanceMetrics.averages.map((average, index) => (
+            <span key={index} className="rounded-full border border-border bg-card px-3 py-1.5 text-foreground">
+              Echipa {String.fromCharCode(65 + index)}: OVR {average}
+            </span>
+          ))}
+          <span className="rounded-full bg-primary/10 px-3 py-1.5 text-primary">
+            Diferență: {balanceMetrics.difference}
+          </span>
+          {balanceMetrics.unratedPlayers > 0 && (
+            <span className="rounded-full bg-muted px-3 py-1.5 text-muted-foreground">
+              {balanceMetrics.unratedPlayers} fără card · OVR implicit 65
+            </span>
+          )}
+        </div>
       )}
 
       {error && (

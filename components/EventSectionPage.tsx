@@ -3,6 +3,7 @@
 import { doc, onSnapshot } from "firebase/firestore";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import AdminPlayerCards from "@/components/AdminPlayerCards";
 import AdminStageAwards from "@/components/AdminStageAwards";
 import AttendanceSection from "@/components/AttendanceSection";
 import MembersGroup from "@/components/MembersGroup";
@@ -30,7 +31,7 @@ export default function EventSectionPage({
   id: string;
   section: EventSection;
 }) {
-  const { user, loading, isSuperAdmin } = useAuth();
+  const { user, loading } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -72,7 +73,7 @@ export default function EventSectionPage({
       </div>
     );
 
-  const canManage = user.uid === event.ownerId || isSuperAdmin;
+  const canManage = user.uid === event.ownerId;
   const group = resolveGroup(event);
 
   return (
@@ -138,7 +139,10 @@ export default function EventSectionPage({
         </>
       )}
       {section === "cards" && (
-        <PlayerCardSection groupId={group.groupId} view="cards" />
+        <>
+          <PlayerCardSection groupId={group.groupId} view="cards" />
+          {canManage && <AdminPlayerCards groupId={group.groupId} />}
+        </>
       )}
     </main>
   );
