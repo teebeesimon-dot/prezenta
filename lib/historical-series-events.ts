@@ -5,6 +5,15 @@ export interface HistoricalSeriesEvent {
   title: string;
 }
 
+function normalizeSeriesTitle(title: string): string {
+  return title
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .trim()
+    .toLocaleLowerCase("ro-RO");
+}
+
 const HISTORICAL_SERIES_EVENTS = [
   {
     seriesId: "tyBWTIGBa68TI0dllcR7",
@@ -106,8 +115,32 @@ const HISTORICAL_SERIES_EVENTS = [
 
 export function getHistoricalSeriesEvents(
   seriesId: string,
+  seriesTitle?: string,
 ): HistoricalSeriesEvent[] {
+  const normalizedTitle = seriesTitle
+    ? normalizeSeriesTitle(seriesTitle)
+    : undefined;
+
   return HISTORICAL_SERIES_EVENTS.filter(
-    (event) => event.seriesId === seriesId,
+    (event) =>
+      event.seriesId === seriesId ||
+      (normalizedTitle !== undefined &&
+        normalizeSeriesTitle(event.title) === normalizedTitle),
   );
+}
+
+export function mergeSeriesOccurrences<T extends { id: string; date: string }>(
+  archived: readonly HistoricalSeriesEvent[],
+  live: readonly T[],
+): Array<
+  | { kind: "archived"; event: HistoricalSeriesEvent }
+  | { kind: "live"; event: T }
+> {
+  const liveIds = new Set(live.map((event) => event.id));
+  return [
+    ...archived
+      .filter((event) => !liveIds.has(event.eventId))
+      .map((event) => ({ kind: "archived" as const, event })),
+    ...live.map((event) => ({ kind: "live" as const, event })),
+  ].sort((a, b) => a.event.date.localeCompare(b.event.date));
 }

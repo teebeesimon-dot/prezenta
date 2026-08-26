@@ -7,6 +7,7 @@ import { db } from "@/lib/firebase";
 import { formatEventDateShort } from "@/lib/events";
 import {
   getHistoricalSeriesEvents,
+  mergeSeriesOccurrences,
   type HistoricalSeriesEvent,
 } from "@/lib/historical-series-events";
 import { formatLei } from "@/lib/pricing";
@@ -91,13 +92,10 @@ export default function SeriesPanel({
 
   const today = todayISO();
   const isClosed = series.status === "closed";
-  const liveIds = new Set(history.map((event) => event.id));
-  const occurrences: SeriesOccurrence[] = [
-    ...getHistoricalSeriesEvents(seriesId)
-      .filter((event) => !liveIds.has(event.eventId))
-      .map((event): SeriesOccurrence => ({ kind: "archived", event })),
-    ...history.map((event): SeriesOccurrence => ({ kind: "live", event })),
-  ].sort((a, b) => a.event.date.localeCompare(b.event.date));
+  const occurrences: SeriesOccurrence[] = mergeSeriesOccurrences(
+    getHistoricalSeriesEvents(seriesId, series.title),
+    history,
+  );
 
   async function handleClose() {
     if (!series) return;
