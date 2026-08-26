@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { subscribeToGroupMembers, type Member } from "@/lib/members";
+import CardImageUploader from "@/components/CardImageUploader";
 import {
   STAGE_AWARD_OPTIONS,
   applyStageAwardsToPlayer,
@@ -36,6 +37,8 @@ export default function AdminStageAwards({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [results, setResults] = useState<Record<string, StageAward[]>>({});
+  const [specialCardUserId, setSpecialCardUserId] = useState("");
+  const [specialCardImages, setSpecialCardImages] = useState<Record<string, string>>({});
 
   useEffect(() => subscribeToGroupMembers(groupId, setMembers), [groupId]);
 
@@ -225,7 +228,7 @@ export default function AdminStageAwards({
           userId: winnerUserId,
           playerName: awards[0].winnerName,
           playerPhoto: awards[0].winnerPhoto,
-          cardImageUrl: progressedCard.cardImageUrl ?? null,
+          cardImageUrl: specialCardImages[winnerUserId] ?? progressedCard.cardImageUrl ?? null,
           overall: progressedCard.overall,
           position: progressedCard.position,
           pace: progressedCard.pace,
@@ -315,6 +318,26 @@ export default function AdminStageAwards({
           </div>
         </div>
       </div>
+
+      {!published && (
+        <div className="mt-5 rounded-xl border border-border bg-background p-4">
+          <h4 className="font-bold text-foreground">Imagine card special</h4>
+          <p className="mt-1 text-sm text-muted-foreground">Încarcă opțional imaginea specială pentru un posibil câștigător. Va fi asociată cardului etapei doar dacă jucătorul câștigă.</p>
+          <label className="mt-3 block text-sm font-medium text-foreground">
+            Jucător
+            <select value={specialCardUserId} onChange={(event) => setSpecialCardUserId(event.target.value)} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5">
+              <option value="">Alege jucătorul</option>
+              {members.map((member) => <option key={member.userId} value={member.userId}>{member.userName}</option>)}
+            </select>
+          </label>
+          {specialCardUserId && (
+            <div className="mt-3">
+              <CardImageUploader groupId={groupId} userId={specialCardUserId} variant="special" onUploaded={(pathname) => setSpecialCardImages((current) => ({ ...current, [specialCardUserId]: pathname }))} />
+              {specialCardImages[specialCardUserId] && <p className="mt-2 text-xs font-semibold text-primary">Imagine pregătită pentru acest jucător și etapa {stageNumber}.</p>}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-5 flex flex-wrap gap-2">
         {!votingOpen && !published && (

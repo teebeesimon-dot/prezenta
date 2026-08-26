@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import PrivateCardImage from "@/components/PrivateCardImage";
 import { getCardTier, type PlayerCardData, type StageCard } from "@/lib/player-cards";
 
@@ -21,7 +20,6 @@ export default function PlayerCard({ card, compact = false, playerName: playerNa
   const tier = getCardTier(card.overall);
   const isStage = "awardIds" in card;
   const playerName = playerNameProp?.trim() || card.playerName?.trim() || "Jucator";
-  const playerPhoto = playerPhotoProp ?? card.playerPhoto ?? null;
   const awards = isStage ? card.awards : [];
   const form = !isStage ? card.form : undefined;
   const formLabel = form === "in_form" ? "Formă bună" : form === "out_of_form" ? "Formă scăzută" : "Formă stabilă";
@@ -43,8 +41,6 @@ export default function PlayerCard({ card, compact = false, playerName: playerNa
         ["PHY", card.physical],
       ];
 
-  const fallbackAvatarUrl = `/api/player-avatar?seed=${encodeURIComponent(card.userId)}&name=${encodeURIComponent(playerName)}`;
-
   return (
     <article className={`relative overflow-hidden rounded-[26px] border border-white/60 bg-gradient-to-br ${tierClasses(tier)} shadow-xl ${compact ? "w-44" : "w-full max-w-xs"}`}>
       <div className="absolute inset-x-0 top-0 h-20 bg-white/20 blur-xl" />
@@ -61,14 +57,9 @@ export default function PlayerCard({ card, compact = false, playerName: playerNa
           {card.cardImageUrl ? (
             <PrivateCardImage pathname={card.cardImageUrl} alt={`Card ${playerName}`} className="h-full w-full object-cover" />
           ) : (
-            <Image
-              src={playerPhoto || fallbackAvatarUrl}
-              alt={playerName}
-              fill
-              sizes={compact ? "176px" : "320px"}
-              className="object-cover object-top"
-              unoptimized
-            />
+            <div className="flex h-full items-center justify-center bg-black/10 px-4 text-center text-sm font-bold text-black/55">
+              Card indisponibil
+            </div>
           )}
         </div>
 
