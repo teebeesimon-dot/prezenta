@@ -22,7 +22,7 @@ const HISTORICAL_EVENT_IDS = [
   "32fZXh02norAqfK9EnZF",
   "ZIVZVbcthW4E9yuis9pL",
 ];
-const HISTORICAL_SERIES_IDS = ["tyBWTIGBa68TI0dllcR7", "8nIem9jI8d31gA9XWOPX"];
+const HISTORICAL_SERIES_IDS = ["tYbWTlGBa68TlOdllcR7", "8nIem9j18d31gA9XW0PX"];
 const API_ROOT = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 
 if (!TOKEN) throw new Error("FIRESTORE_ACCESS_TOKEN is required.");
