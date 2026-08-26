@@ -4,6 +4,25 @@ const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "ne-adunam";
 const TOKEN = process.env.FIRESTORE_ACCESS_TOKEN;
 const OUTPUT = process.env.AUDIT_OUTPUT || "firestore-event-audit.json";
 const PROTECTED_EVENT_IDS = ["FyHjMfq8sp2W90uI38ut", "eCWio3E5cl50SU95fXYT"];
+const HISTORICAL_EVENT_IDS = [
+  "gOqHeH3nLczGDy9ebV7X",
+  "OZwGBGy8KdYJLSCxVtZb",
+  "Z3cZFdMTTMspwFimIMR3",
+  "f2ickThdZMZG66LG8Zl2",
+  "21y1CNDcLYwgNQRtbZak",
+  "KQxY9DkWL7IhfCIKJbRe",
+  "bbWdLovjnD8Q7skZ8fo3",
+  "B1D46JLL7f6mw0deCL6T",
+  "vIla7wHvjnGpXfzpO2hR",
+  "7r1ca2BJRbpdH8EFlmJ3",
+  "XVMpkOIcdPp4VYjg6Kvl",
+  "5LDmlBELY9cQcLeU8fvU",
+  "K7hG2cuCL5x5RaBBqCuY",
+  "cpETICeSfwzivfvgPZvi",
+  "32fZXh02norAqfK9EnZF",
+  "ZIVZVbcthW4E9yuis9pL",
+];
+const HISTORICAL_SERIES_IDS = ["tyBWTIGBa68TI0dllcR7", "8nIem9jI8d31gA9XWOPX"];
 const API_ROOT = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 
 if (!TOKEN) throw new Error("FIRESTORE_ACCESS_TOKEN is required.");
@@ -229,6 +248,42 @@ const ambiguousReferences = referencesToCandidates.filter(({ path }) => {
   return true;
 });
 
+const historicalTargets = new Set([
+  ...HISTORICAL_EVENT_IDS,
+  ...HISTORICAL_SERIES_IDS,
+]);
+const historicalMatches = allDocuments.flatMap((document) => {
+  const fields = containsValue(document.data, historicalTargets);
+  const idMatch = historicalTargets.has(document.id);
+  if (!fields.length && !idMatch) return [];
+  return [
+    {
+      path: document.path,
+      collection: document.collection,
+      id: document.id,
+      fields,
+      idMatch,
+      data: document.data,
+    },
+  ];
+});
+const historicalMatchesByCollection = Object.fromEntries(
+  [...new Set(historicalMatches.map((document) => document.collection))]
+    .sort()
+    .map((collection) => [
+      collection,
+      historicalMatches.filter(
+        (document) => document.collection === collection,
+      ),
+    ]),
+);
+const historicalEventExistence = Object.fromEntries(
+  HISTORICAL_EVENT_IDS.map((id) => [
+    id,
+    eventDocuments.some((document) => document.id === id),
+  ]),
+);
+
 const byCollection = Object.fromEntries(
   [...new Set(allDocuments.map((document) => document.collection))]
     .sort()
@@ -271,6 +326,13 @@ const report = {
   preservedPlayerCards: {
     count: protectedPlayerCards.length,
     paths: protectedPlayerCards.map((document) => document.path),
+  },
+  historicalRecoveryAudit: {
+    eventIds: HISTORICAL_EVENT_IDS,
+    seriesIds: HISTORICAL_SERIES_IDS,
+    eventDocumentExists: historicalEventExistence,
+    matchedDocumentCount: historicalMatches.length,
+    matchedDocumentsByCollection: historicalMatchesByCollection,
   },
   inventory: { totalDocuments: allDocuments.length, byCollection },
 };
