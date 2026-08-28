@@ -39,32 +39,38 @@ export default function EventDashboardShell({ event, active = "overview", childr
             <h2 className="event-panel-title">Locație</h2>
             {(() => {
               const mapUrl = staticMapUrl(event.latitude, event.longitude);
+              const venueName = event.locationName?.trim();
+              const address = getEventLocationName(event);
+              const showAddress = !!address && address !== venueName;
               return (
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  {mapUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                <>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {mapUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={mapUrl}
+                        alt=""
+                        aria-hidden="true"
+                        className="h-28 w-full rounded-xl border border-border object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-28 w-full items-center justify-center rounded-xl border border-border bg-[linear-gradient(135deg,var(--muted),var(--card))]">
+                        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground" aria-hidden="true">⌖</span>
+                      </div>
+                    )}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={mapUrl}
-                      alt={`Hartă pentru ${getEventLocationName(event)}`}
+                      src={getEventHeroImage(event)}
+                      alt=""
+                      aria-hidden="true"
                       className="h-28 w-full rounded-xl border border-border object-cover"
                     />
-                  ) : (
-                    <div className="flex h-28 w-full items-center justify-center rounded-xl border border-border bg-[linear-gradient(135deg,var(--muted),var(--card))]">
-                      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground" aria-hidden="true">⌖</span>
-                    </div>
-                  )}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={getEventHeroImage(event)}
-                    alt=""
-                    aria-hidden="true"
-                    className="h-28 w-full rounded-xl border border-border object-cover"
-                  />
-                </div>
+                  </div>
+                  <p className="mt-4 font-semibold text-foreground">{venueName || "Locația evenimentului"}</p>
+                  {showAddress && <p className="mt-1 text-sm leading-6 text-muted-foreground">{address}</p>}
+                </>
               );
             })()}
-            <p className="mt-4 font-semibold text-foreground">{event.locationName || "Locația evenimentului"}</p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">{getEventLocationName(event)}</p>
             <OpenInGoogleMapsButton event={event} className="mt-4 w-full" />
           </section>
           <section className="event-panel p-5"><h2 className="event-panel-title">Detalii eveniment</h2><dl className="mt-4 flex flex-col gap-3 text-sm">

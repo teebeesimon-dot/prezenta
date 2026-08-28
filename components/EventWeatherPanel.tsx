@@ -12,7 +12,17 @@ interface WeatherData {
     precipitation: number;
     label: string;
   };
-  hourly: Array<{ time: string; temperature: number; code: number; label: string; precipitation: number }>;
+  hourly: Array<{
+    time: string;
+    temperature: number;
+    apparentTemperature: number;
+    code: number;
+    label: string;
+    windSpeed: number;
+    humidity: number;
+    precipitation: number;
+    precipitationProbability: number;
+  }>;
 }
 
 const fetcher = async (url: string) => {
@@ -97,27 +107,48 @@ export default function EventWeatherPanel({
     revalidateOnFocus: false,
   });
   const eventMs = new Date(`${eventDate}T${eventTime}:00`).getTime();
-  const forecast = data?.hourly
+  const byDistance = data?.hourly
     .slice()
-    .sort((a, b) => Math.abs(new Date(a.time).getTime() - eventMs) - Math.abs(new Date(b.time).getTime() - eventMs))
-    .slice(0, 5)
-    .sort((a, b) => a.time.localeCompare(b.time));
+    .sort((a, b) => Math.abs(new Date(a.time).getTime() - eventMs) - Math.abs(new Date(b.time).getTime() - eventMs));
+  const eventWeather = byDistance?.[0];
+  const forecast = byDistance?.slice(0, 5).sort((a, b) => a.time.localeCompare(b.time));
+  const conditions = eventWeather
+    ? {
+        temperature: eventWeather.temperature,
+        apparentTemperature: eventWeather.apparentTemperature,
+        code: eventWeather.code,
+        label: eventWeather.label,
+        windSpeed: eventWeather.windSpeed,
+        humidity: eventWeather.humidity,
+        precipitation: eventWeather.precipitation,
+      }
+    : data
+      ? {
+          temperature: data.current.temperature_2m,
+          apparentTemperature: data.current.apparent_temperature,
+          code: data.current.weather_code,
+          label: data.current.label,
+          windSpeed: data.current.wind_speed_10m,
+          humidity: data.current.relative_humidity_2m,
+          precipitation: data.current.precipitation,
+        }
+      : null;
 
   if (variant === "inline") {
     if (!key || error || (!isLoading && !data)) return null;
     return (
       <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3">
-        {isLoading || !data ? (
+        {isLoading || !conditions ? (
           <span className="text-sm text-muted-foreground">Prognoză…</span>
         ) : (
           <>
-            <WeatherIcon code={data.current.weather_code} className="h-9 w-9" />
+            <WeatherIcon code={conditions.code} className="h-9 w-9" />
             <div className="min-w-0">
               <p className="text-2xl font-bold leading-none tracking-tight text-foreground">
-                {Math.round(data.current.temperature_2m)}°
+                {Math.round(conditions.temperature)}°
               </p>
               <p className="mt-1 truncate text-xs text-muted-foreground">
-                {data.current.label} · se simte ca {Math.round(data.current.apparent_temperature)}°
+                {conditions.label} · se simte ca {Math.round(conditions.apparentTemperature)}°
               </p>
             </div>
           </>
@@ -133,33 +164,33 @@ export default function EventWeatherPanel({
       </h2>
       {!key || error ? (
         <p className="mt-5 text-sm text-muted-foreground">Vreme indisponibilă pentru această locație.</p>
-      ) : isLoading || !data ? (
+      ) : isLoading || !conditions ? (
         <p className="mt-5 text-sm text-muted-foreground">Se încarcă prognoza...</p>
       ) : (
         <>
           <div className="mt-4 flex items-center gap-4">
-            <WeatherIcon code={data.current.weather_code} className="h-14 w-14" />
+            <WeatherIcon code={conditions.code} className="h-14 w-14" />
             <div>
               <p className="text-4xl font-bold tracking-tight text-foreground">
-                {Math.round(data.current.temperature_2m)}°
+                {Math.round(conditions.temperature)}°
               </p>
               <p className="text-sm text-muted-foreground">
-                {data.current.label} · Se simte ca {Math.round(data.current.apparent_temperature)}°
+                {conditions.label} · Se simte ca {Math.round(conditions.apparentTemperature)}°
               </p>
             </div>
           </div>
           <dl className="mt-5 grid grid-cols-3 gap-2 rounded-xl bg-muted/45 p-3 text-center">
             <div>
               <dt className="text-xs text-muted-foreground">Vânt</dt>
-              <dd className="mt-1 text-sm font-semibold">{Math.round(data.current.wind_speed_10m)} km/h</dd>
+              <dd className="mt-1 text-sm font-semibold">{Math.round(conditions.windSpeed)} km/h</dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">Umiditate</dt>
-              <dd className="mt-1 text-sm font-semibold">{Math.round(data.current.relative_humidity_2m)}%</dd>
+              <dd className="mt-1 text-sm font-semibold">{Math.round(conditions.humidity)}%</dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">Precipitații</dt>
-              <dd className="mt-1 text-sm font-semibold">{data.current.precipitation} mm</dd>
+              <dd className="mt-1 text-sm font-semibold">{conditions.precipitation} mm</dd>
             </div>
           </dl>
           {forecast && forecast.length > 0 && (
