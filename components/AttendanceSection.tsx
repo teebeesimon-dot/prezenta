@@ -1,6 +1,6 @@
 "use client";
 
-import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import { db } from "@/lib/firebase";
@@ -10,7 +10,7 @@ import {
   parseTimestamp,
 } from "@/lib/going-list";
 import { computePerPlayer, computeTotalCost, formatLei } from "@/lib/pricing";
-import { isPaid, setPaymentStatus } from "@/lib/payments";
+import { isPaid, setAllPaymentStatuses, setPaymentStatus } from "@/lib/payments";
 import {
   computeRegistrationOpensAt,
   formatCountdown,
@@ -216,9 +216,8 @@ export default function AttendanceSection({
   const [userPosition, setUserPosition] =
     useState<RankedParticipantEntry | null>(null);
   const [submitting, setSubmitting] = useState<AttendanceStatus | null>(null);
-  const [payments, setPayments] = useState<Record<string, "paid" | "unpaid">>(
-    {},
-  );
+  const [payments, setPayments] = useState<Record<string, boolean>>({});
+  const [updatingPayments, setUpdatingPayments] = useState(false);
   const [subscriptions, setSubscriptions] = useState<SubscriptionMap>({});
   const [now, setNow] = useState(() => Date.now());
   const [confirmedExpanded, setConfirmedExpanded] = useState(
@@ -248,24 +247,6 @@ export default function AttendanceSection({
 
   const monthKey = eventDate ? monthKeyFromDate(eventDate) : "";
 
-  // Live payment status from the event document. Gated on auth so the snapshot
-  // listener doesn't fire before the Firebase token is attached (which would
-  // produce a transient permission-denied on cold load).
-  useEffect(() => {
-    if (!user) return;
-    const unsubscribe = onSnapshot(
-      doc(db, "events", eventId),
-      (snap) => {
-        const data = snap.data();
-        setPayments(
-          (data?.payments as Record<string, "paid" | "unpaid">) ?? {},
-        );
-      },
-      () => setPayments({}),
-    );
-    return () => unsubscribe();
-  }, [eventId, user]);
-
   // Live monthly subscriptions for the event's month.
   useEffect(() => {
     if (!user || !monthKey) return;
@@ -293,6 +274,7 @@ export default function AttendanceSection({
         }[] = [];
         const maybeMap = new Map<string, ParticipantEntry>();
         const notGoingMap = new Map<string, ParticipantEntry>();
+        const nextPayments: Record<string, boolean> = {};
         let userStatus: AttendanceStatus | null = null;
 
         snapshot.docs.forEach((docSnap) => {
@@ -306,6 +288,7 @@ export default function AttendanceSection({
           };
 
           if (status === "vin") {
+            nextPayments[userId] = data.paid === true;
             goingInputs.push({
               userId,
               name: entry.name,
@@ -327,6 +310,7 @@ export default function AttendanceSection({
 
         const lists = computeGoingLists(goingInputs, maxParticipants);
         setConfirmed(lists.confirmed);
+        setPayments(nextPayments);
         setWaitlist(lists.waitlist);
         setMaybe(sortByName(Array.from(maybeMap.values())));
         setNotGoing(sortByName(Array.from(notGoingMap.values())));
@@ -354,7 +338,21 @@ export default function AttendanceSection({
   const collected = perPlayer * paidCount;
 
   async function handleTogglePaid(userId: string, nextPaid: boolean) {
-    await setPaymentStatus(eventId, payments, userId, nextPaid);
+    await setPaymentStatus(eventId, userId, nextPaid);
+  }
+
+  async function handleBulkPayments(paid: boolean) {
+    const message = paid
+      ? "Marchezi toți participanții confirmați ca plătiți?"
+      : "Resetezi plățile tuturor participanților confirmați?";
+    if (!window.confirm(message)) return;
+
+    setUpdatingPayments(true);
+    try {
+      await setAllPaymentStatuses(eventId, confirmed.map((player) => player.userId), paid);
+    } finally {
+      setUpdatingPayments(false);
+    }
   }
 
   async function handleToggleSubscription(
@@ -565,6 +563,21 @@ export default function AttendanceSection({
               ) : null}
             </button>
 
+            {paymentModel === "per_game" && totalCost > 0 && (
+              <div className="mt-3 flex flex-col gap-3 border-t border-border/60 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-muted-foreground">
+                  <p>{confirmed.length} confirmați <span className="mx-2">|</span> {paidCount} plătiți <span className="mx-2">|</span> {Math.max(0, payers.length - paidCount)} neplătiți</p>
+                  <p className="mt-1">Încasat: <span className="font-semibold text-primary">{formatLei(collected)}</span> / {formatLei(totalCost)}</p>
+                </div>
+                {canManage && confirmed.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" disabled={updatingPayments} onClick={() => handleBulkPayments(true)} className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary transition hover:bg-primary/15 disabled:opacity-50">Marchează toți ca plătiți</button>
+                    <button type="button" disabled={updatingPayments} onClick={() => handleBulkPayments(false)} className="rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:text-foreground disabled:opacity-50">Resetează plățile</button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {!confirmedExpanded ? (
               <p className="mt-3 text-sm font-medium text-primary">
                 Vezi lista jucătorilor confirmați
@@ -626,9 +639,8 @@ export default function AttendanceSection({
                                   : "border border-border bg-background text-muted-foreground hover:text-foreground"
                               }`}
                             >
-                              {paid
-                                ? `Plătit · ${formatLei(perPlayer)}`
-                                : "Neplătit"}
+                      {paid ? "Plătită" : "Neplătit"}
+
                             </button>
                           ) : (
                             <span
@@ -638,7 +650,7 @@ export default function AttendanceSection({
                                   : "bg-muted text-muted-foreground"
                               }`}
                             >
-                              {paid ? "Plătit" : formatLei(perPlayer)}
+                              {paid ? "Plătită" : "Neplătit"}
                             </span>
                           )
                         ) : null}

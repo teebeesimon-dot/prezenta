@@ -40,6 +40,7 @@ export async function saveResponse(
     userName,
     userPhoto,
     status,
+    paid: false,
     createdAt: now,
     ...(status === "vin" ? { goingRegisteredAt: now } : {}),
   });

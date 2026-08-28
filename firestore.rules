@@ -113,10 +113,24 @@ service cloud.firestore {
 
     match /responses/{responseId} {
       function isResponseOwner() { return isAuthenticated() && resource.data.userId == request.auth.uid; }
+      function isEventOwnerForResponse() {
+        return isAuthenticated()
+          && exists(/databases/$(database)/documents/events/$(resource.data.eventId))
+          && get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.ownerId == request.auth.uid;
+      }
       function isCreatingOwnResponse() { return isAuthenticated() && request.resource.data.userId == request.auth.uid && responseId == request.resource.data.eventId + '_' + request.auth.uid && validAttendanceStatus(request.resource.data.status); }
       allow get, list: if isAuthenticated();
       allow create: if isCreatingOwnResponse() && request.resource.data.keys().hasAll(['eventId', 'userId', 'status', 'createdAt']);
-      allow update: if isResponseOwner() && request.resource.data.userId == request.auth.uid && request.resource.data.eventId == resource.data.eventId && validAttendanceStatus(request.resource.data.status);
+      allow update: if (isResponseOwner()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.eventId == resource.data.eventId
+        && validAttendanceStatus(request.resource.data.status)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'userName', 'userPhoto', 'updatedAt', 'goingRegisteredAt']))
+        || (isEventOwnerForResponse()
+          && request.resource.data.userId == resource.data.userId
+          && request.resource.data.eventId == resource.data.eventId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paid'])
+          && request.resource.data.paid is bool);
       allow delete: if isResponseOwner();
     }
 
