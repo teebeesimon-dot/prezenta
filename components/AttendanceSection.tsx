@@ -169,24 +169,35 @@ function RankedParticipantList({
       {participants.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">{emptyMessage}</p>
       ) : (
-        <ul className="mt-3 space-y-2">
-          {participants.map((participant) => (
-            <li
-              key={participant.userId}
-              className="flex items-center gap-3 rounded-lg bg-card/70 px-3 py-2"
-            >
-              <span className="w-8 shrink-0 text-xs font-bold text-primary">
-                {participant.positionLabel}
-              </span>
-              <ParticipantAvatar
-                name={participant.name}
-                photoURL={participant.photoURL}
-              />
-              <span className="text-sm font-medium text-foreground">
-                {participant.name}
-              </span>
-            </li>
-          ))}
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {participants.map((participant) => {
+            const card = playerCards?.[participant.userId];
+            const sub = positionOverall(card);
+            return (
+              <li
+                key={participant.userId}
+                className="flex items-center gap-3 rounded-lg bg-card/70 px-3 py-2"
+              >
+                <span className="w-6 shrink-0 text-xs font-bold text-primary">
+                  {participant.positionLabel}
+                </span>
+                <PlayerCardThumb
+                  card={card}
+                  name={participant.name}
+                  photoURL={participant.photoURL}
+                  onOpen={onOpenCard ? () => onOpenCard(participant.userId) : undefined}
+                />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-foreground">
+                    {participant.name}
+                  </span>
+                  {sub ? (
+                    <span className="block text-xs text-muted-foreground">{sub}</span>
+                  ) : null}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -198,11 +209,15 @@ function SimpleParticipantList({
   count,
   participants,
   className,
+  playerCards,
+  onOpenCard,
 }: {
   title: string;
   count: number;
   participants: ParticipantEntry[];
   className: string;
+  playerCards?: Record<string, PlayerCardData>;
+  onOpenCard?: (userId: string) => void;
 }) {
   return (
     <div className={`rounded-2xl border p-4 ${className}`}>
@@ -212,21 +227,32 @@ function SimpleParticipantList({
       {participants.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">Nimeni încă.</p>
       ) : (
-        <ul className="mt-3 space-y-2">
-          {participants.map((participant) => (
-            <li
-              key={participant.userId}
-              className="flex items-center gap-3 rounded-lg bg-card/70 px-3 py-2"
-            >
-              <ParticipantAvatar
-                name={participant.name}
-                photoURL={participant.photoURL}
-              />
-              <span className="text-sm font-medium text-foreground">
-                {participant.name}
-              </span>
-            </li>
-          ))}
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {participants.map((participant) => {
+            const card = playerCards?.[participant.userId];
+            const sub = positionOverall(card);
+            return (
+              <li
+                key={participant.userId}
+                className="flex items-center gap-3 rounded-lg bg-card/70 px-3 py-2"
+              >
+                <PlayerCardThumb
+                  card={card}
+                  name={participant.name}
+                  photoURL={participant.photoURL}
+                  onOpen={onOpenCard ? () => onOpenCard(participant.userId) : undefined}
+                />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-foreground">
+                    {participant.name}
+                  </span>
+                  {sub ? (
+                    <span className="block text-xs text-muted-foreground">{sub}</span>
+                  ) : null}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -247,6 +273,8 @@ export default function AttendanceSection({
   registrationLeadUnit,
   registrationOpenTime,
   view = "all",
+  playerCards,
+  onOpenCard,
 }: AttendanceSectionProps) {
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const [confirmed, setConfirmed] = useState<RankedParticipantEntry[]>([]);
@@ -623,31 +651,37 @@ export default function AttendanceSection({
                 Niciun jucător confirmat încă.
               </p>
             ) : (
-              <ul className="mt-3 divide-y divide-border/60 border-t border-border/60">
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {confirmed.map((player) => {
                   const subscribed = Boolean(subscriptions[player.userId]);
                   const paid = isPaid(payments, player.userId);
+                  const card = playerCards?.[player.userId];
+                  const sub = positionOverall(card);
                   return (
                     <li
                       key={player.userId}
-                      className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:gap-3"
+                      className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/70 p-2.5"
                     >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="w-7 shrink-0 text-xs font-bold text-primary">
-                          {player.positionLabel}
-                        </span>
-                        <ParticipantAvatar
-                          name={player.name}
-                          photoURL={player.photoURL}
-                        />
-                        <span className="min-w-0 flex-1 break-words text-sm font-medium text-foreground sm:truncate">
+                      <span className="w-5 shrink-0 text-center text-xs font-bold text-primary">
+                        {player.positionLabel}
+                      </span>
+                      <PlayerCardThumb
+                        card={card}
+                        name={player.name}
+                        photoURL={player.photoURL}
+                        onOpen={onOpenCard ? () => onOpenCard(player.userId) : undefined}
+                      />
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <span className="truncate text-sm font-semibold text-foreground">
                           {player.name}
                         </span>
-                        <span className="shrink-0 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary">
-                          Confirmat
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 pl-10 sm:shrink-0 sm:flex-nowrap sm:justify-end sm:pl-0">
+                        {sub ? (
+                          <span className="text-xs text-muted-foreground">{sub}</span>
+                        ) : null}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                            Confirmat
+                          </span>
                         {paymentModel === "monthly" ? (
                           subscribed ? (
                             <span className="rounded-full bg-accent/20 px-2.5 py-1 text-xs font-medium text-accent-foreground">
@@ -707,6 +741,7 @@ export default function AttendanceSection({
                             {subscribed ? "Anulează abonament" : "Abonează"}
                           </button>
                         )}
+                        </div>
                       </div>
                     </li>
                   );
@@ -734,18 +769,24 @@ export default function AttendanceSection({
                 participants={waitlist}
                 className="border-accent/30 bg-accent/5"
                 emptyMessage="Nimeni pe lista de așteptare."
+                playerCards={playerCards}
+                onOpenCard={onOpenCard}
               />
               <SimpleParticipantList
                 title={MAYBE_CONFIG.groupTitle}
                 count={maybe.length}
                 participants={maybe}
                 className={MAYBE_CONFIG.listClass}
+                playerCards={playerCards}
+                onOpenCard={onOpenCard}
               />
               <SimpleParticipantList
                 title={NOT_GOING_CONFIG.groupTitle}
                 count={notGoing.length}
                 participants={notGoing}
                 className={NOT_GOING_CONFIG.listClass}
+                playerCards={playerCards}
+                onOpenCard={onOpenCard}
               />
             </>
           )}
