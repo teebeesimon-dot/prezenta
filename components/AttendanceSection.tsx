@@ -44,7 +44,7 @@ interface AttendanceSectionProps {
   registrationLeadValue?: number;
   registrationLeadUnit?: "hours" | "days";
   registrationOpenTime?: string;
-  view?: "all" | "response" | "lists";
+  view?: "all" | "response" | "lists" | "response-confirmed";
 }
 
 const MAYBE_CONFIG = {
@@ -221,7 +221,13 @@ export default function AttendanceSection({
   );
   const [subscriptions, setSubscriptions] = useState<SubscriptionMap>({});
   const [now, setNow] = useState(() => Date.now());
-  const [confirmedExpanded, setConfirmedExpanded] = useState(false);
+  const [confirmedExpanded, setConfirmedExpanded] = useState(
+    view === "response-confirmed",
+  );
+  const showsResponse = view !== "lists";
+  const showsConfirmed = view !== "response";
+  const showsOtherLists = view === "all" || view === "lists";
+  const inlineConfirmed = view === "response-confirmed";
 
   const registrationOpensAt = computeRegistrationOpensAt({
     date: eventDate ?? "",
@@ -420,7 +426,7 @@ export default function AttendanceSection({
         Prezență
       </h2>
 
-      {view !== "lists" && (
+      {showsResponse && (
         <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <div className="mb-4 flex items-center gap-3">
             <ParticipantAvatar
@@ -505,7 +511,7 @@ export default function AttendanceSection({
         </div>
       )}
 
-      {view !== "response" && (
+      {showsConfirmed && (
         <div className="mt-6 flex flex-col gap-4">
           <div
             className={`rounded-2xl border p-4 ${
@@ -516,17 +522,19 @@ export default function AttendanceSection({
           >
             <button
               type="button"
-              onClick={() => setConfirmedExpanded((value) => !value)}
+              onClick={inlineConfirmed ? undefined : () => setConfirmedExpanded((value) => !value)}
               aria-expanded={confirmedExpanded}
-              className="flex w-full flex-wrap items-start justify-between gap-3 text-left"
+              className={`flex w-full flex-wrap items-start justify-between gap-3 text-left ${inlineConfirmed ? "cursor-default" : ""}`}
             >
               <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                <ChevronIcon
-                  className={`h-4 w-4 shrink-0 transition-transform ${
-                    confirmedExpanded ? "rotate-180" : ""
-                  }`}
-                />
-                Confirmați ({confirmed.length}/{maxParticipants})
+                {!inlineConfirmed && (
+                  <ChevronIcon
+                    className={`h-4 w-4 shrink-0 transition-transform ${
+                      confirmedExpanded ? "rotate-180" : ""
+                    }`}
+                  />
+                )}
+                {inlineConfirmed ? "Cine vine" : "Confirmați"} ({confirmed.length}/{maxParticipants})
               </span>
 
               {paymentModel === "monthly" ? (
@@ -585,6 +593,9 @@ export default function AttendanceSection({
                         />
                         <span className="min-w-0 flex-1 break-words text-sm font-medium text-foreground sm:truncate">
                           {player.name}
+                        </span>
+                        <span className="shrink-0 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-semibold text-primary">
+                          Confirmat
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 pl-10 sm:shrink-0 sm:flex-nowrap sm:justify-end sm:pl-0">
@@ -668,24 +679,28 @@ export default function AttendanceSection({
             )}
           </div>
 
-          <RankedParticipantList
-            title={`Listă de așteptare (${waitlist.length})`}
-            participants={waitlist}
-            className="border-accent/30 bg-accent/5"
-            emptyMessage="Nimeni pe lista de așteptare."
-          />
-          <SimpleParticipantList
-            title={MAYBE_CONFIG.groupTitle}
-            count={maybe.length}
-            participants={maybe}
-            className={MAYBE_CONFIG.listClass}
-          />
-          <SimpleParticipantList
-            title={NOT_GOING_CONFIG.groupTitle}
-            count={notGoing.length}
-            participants={notGoing}
-            className={NOT_GOING_CONFIG.listClass}
-          />
+          {showsOtherLists && (
+            <>
+              <RankedParticipantList
+                title={`Listă de așteptare (${waitlist.length})`}
+                participants={waitlist}
+                className="border-accent/30 bg-accent/5"
+                emptyMessage="Nimeni pe lista de așteptare."
+              />
+              <SimpleParticipantList
+                title={MAYBE_CONFIG.groupTitle}
+                count={maybe.length}
+                participants={maybe}
+                className={MAYBE_CONFIG.listClass}
+              />
+              <SimpleParticipantList
+                title={NOT_GOING_CONFIG.groupTitle}
+                count={notGoing.length}
+                participants={notGoing}
+                className={NOT_GOING_CONFIG.listClass}
+              />
+            </>
+          )}
         </div>
       )}
     </section>

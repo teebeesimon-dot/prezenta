@@ -297,7 +297,6 @@ export default function EventPageClient({ id }: EventPageClientProps) {
       >
         {[
           ["group", "Grup"],
-          ["confirmed", "Confirmați"],
           ["teams", "Echipe"],
           ...(isFootball ? [["cards", "Player Cards"]] : []),
         ].map(([path, label]) => (
@@ -332,7 +331,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         registrationLeadValue={event.registrationLeadValue}
         registrationLeadUnit={event.registrationLeadUnit}
         registrationOpenTime={event.registrationOpenTime}
-        view="response"
+        view="response-confirmed"
       />
 
       {isFootball && (
