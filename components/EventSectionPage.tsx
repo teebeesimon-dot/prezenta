@@ -1,11 +1,11 @@
 "use client";
 
 import { doc, onSnapshot } from "firebase/firestore";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import AdminPlayerCards from "@/components/AdminPlayerCards";
 import AdminStageAwards from "@/components/AdminStageAwards";
 import AttendanceSection from "@/components/AttendanceSection";
+import EventDashboardShell from "@/components/EventDashboardShell";
 import MembersGroup from "@/components/MembersGroup";
 import PlayerCardSection from "@/components/PlayerCardSection";
 import TeamGenerator from "@/components/TeamGenerator";
@@ -77,20 +77,10 @@ export default function EventSectionPage({
   const group = resolveGroup(event);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-      <Link
-        href={`/event/${id}`}
-        className="text-sm font-semibold text-primary"
-      >
-        ← Înapoi la eveniment
-      </Link>
-      <header className="mt-5 border-b border-border pb-5">
-        <p className="text-sm font-medium text-muted-foreground">
-          {event.title}
-        </p>
-        <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">
-          {titles[section]}
-        </h1>
+    <EventDashboardShell event={event} active={section}>
+      <header className="event-panel p-5 sm:p-6">
+        <p className="text-sm font-semibold text-primary">{event.title}</p>
+        <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">{titles[section]}</h1>
       </header>
       {section === "group" && (
         <MembersGroup
@@ -144,6 +134,6 @@ export default function EventSectionPage({
           {canManage && <AdminPlayerCards groupId={group.groupId} />}
         </>
       )}
-    </main>
+    </EventDashboardShell>
   );
 }

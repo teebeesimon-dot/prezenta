@@ -419,13 +419,12 @@ export default function AttendanceSection({
   }
 
   return (
-    <section className="mt-8">
-      <h2 className="mb-4 text-xl font-bold tracking-tight text-foreground">
-        Prezență
-      </h2>
+    <section className="flex flex-col gap-4">
+      <h2 className="sr-only">Prezență</h2>
 
       {showsResponse && (
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="event-panel p-5">
+          <p className="event-panel-title mb-4">Răspunsul tău</p>
           <div className="mb-4 flex items-center gap-3">
             <ParticipantAvatar
               name={user.displayName ?? "User"}
@@ -510,14 +509,8 @@ export default function AttendanceSection({
       )}
 
       {showsConfirmed && (
-        <div className="mt-6 flex flex-col gap-4">
-          <div
-            className={`rounded-2xl border p-4 ${
-              paymentModel === "monthly"
-                ? "border-accent/30 bg-accent/5"
-                : "border-primary/30 bg-primary/5"
-            }`}
-          >
+        <div className="flex flex-col gap-4">
+          <div className="event-panel p-4 sm:p-5">
             <button
               type="button"
               onClick={inlineConfirmed ? undefined : () => setConfirmedExpanded((value) => !value)}

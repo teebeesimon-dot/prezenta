@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import AttendanceSection from "@/components/AttendanceSection";
 import DeleteEventButton from "@/components/DeleteEventButton";
+import EventDashboardShell from "@/components/EventDashboardShell";
 import OpenInGoogleMapsButton from "@/components/OpenInGoogleMapsButton";
 import SeriesPanel from "@/components/SeriesPanel";
 import ShareOnWhatsAppButton from "@/components/ShareOnWhatsAppButton";
@@ -154,191 +155,44 @@ export default function EventPageClient({ id }: EventPageClientProps) {
   const stageNumber = event.seriesIndex ?? 1;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
-      <Link
-        href="/"
-        className="mb-6 inline-flex items-center text-sm font-medium text-primary transition hover:text-primary-hover"
-      >
-        ← Înapoi
-      </Link>
-
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="min-w-0 flex-1 break-words text-2xl font-extrabold tracking-tight text-card-foreground sm:text-3xl">
-            {event.title}
-          </h1>
-          <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-            {SPORT_LABELS[event.sport] ?? event.sport}
-          </span>
-        </div>
-
-        <dl className="mt-6 space-y-4">
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Sport
-            </dt>
-            <dd className="mt-1 text-card-foreground">
-              {SPORT_LABELS[event.sport] ?? event.sport}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Data
-            </dt>
-            <dd className="mt-1 text-card-foreground">
-              {formatEventDate(event.date)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Interval
-            </dt>
-            <dd className="mt-1 text-card-foreground">
-              {formatTimeRange(event.time, event.durationMinutes)}
-              {event.durationMinutes ? (
-                <span className="text-muted-foreground">
-                  {" "}
-                  ({formatDuration(event.durationMinutes)})
-                </span>
-              ) : null}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Locație
-            </dt>
-            <dd className="mt-1 break-words text-card-foreground">
-              {getEventLocationName(event)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Participanți maximi
-            </dt>
-            <dd className="mt-1 text-card-foreground">
-              {event.maxParticipants}
-            </dd>
-          </div>
-          {registrationOpensAt ? (
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Deschidere înscrieri
-              </dt>
-              <dd className="mt-1 text-card-foreground">
-                {formatRegistrationOpensAt(registrationOpensAt)}
-              </dd>
+    <EventDashboardShell event={event}>
+      <section className="event-panel overflow-hidden">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="p-5 sm:p-7">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <span className="rounded-full bg-primary/15 px-3 py-1 text-xs font-bold text-primary">{SPORT_LABELS[event.sport] ?? event.sport}</span>
+                <h1 className="mt-3 text-balance text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">{event.title}</h1>
+              </div>
+              {isFootball && <span className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs font-semibold text-muted-foreground">Etapa {stageNumber}</span>}
             </div>
-          ) : null}
-          {event.paymentModel !== "monthly" && event.pricePerHour ? (
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Cost teren
-              </dt>
-              <dd className="mt-1 text-card-foreground">
-                {formatLei(event.pricePerHour)}/oră
-                {event.durationMinutes ? (
-                  <span className="text-muted-foreground">
-                    {" — total "}
-                    <span className="font-semibold text-card-foreground">
-                      {formatLei(
-                        computeTotalCost(
-                          event.pricePerHour,
-                          event.durationMinutes,
-                        ),
-                      )}
-                    </span>
-                  </span>
-                ) : null}
-              </dd>
-            </div>
-          ) : null}
-        </dl>
-
-        <div className="mt-6 border-t border-border pt-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <ShareOnWhatsAppButton event={event} className="w-full sm:w-auto" />
-            <OpenInGoogleMapsButton
-              event={event}
-              className="w-full sm:w-auto"
-            />
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className="inline-flex w-full items-center justify-center rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-card-foreground transition hover:bg-muted active:scale-[0.98] sm:w-auto"
-            >
-              Copiază linkul evenimentului
-            </button>
-            {canManage && (
-              <Link
-                href={`/event/${event.id}/edit`}
-                className="inline-flex w-full items-center justify-center rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm font-semibold text-primary transition hover:bg-primary/20 active:scale-[0.98] sm:w-auto"
-              >
-                Editează evenimentul
-              </Link>
-            )}
-            {canManage && !event.seriesId && (
-              <DeleteEventButton
-                eventId={event.id}
-                className="w-full sm:w-auto"
-              />
-            )}
+            <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-2">
+              <Summary label="Data" value={formatEventDate(event.date)} />
+              <Summary label="Ora" value={`${formatTimeRange(event.time, event.durationMinutes)}${event.durationMinutes ? ` (${formatDuration(event.durationMinutes)})` : ""}`} />
+              <Summary label="Locație" value={getEventLocationName(event)} />
+              <Summary label="Capacitate" value={`${event.maxParticipants} participanți`} />
+              {registrationOpensAt && <Summary label="Deschidere înscrieri" value={formatRegistrationOpensAt(registrationOpensAt)} />}
+              {event.paymentModel !== "monthly" && event.pricePerHour && <Summary label="Cost" value={`${formatLei(event.pricePerHour)}/oră · Total ${formatLei(computeTotalCost(event.pricePerHour, event.durationMinutes ?? 60))}`} />}
+            </dl>
           </div>
-          {copied && (
-            <p className="mt-3 text-sm font-medium text-primary">
-              Link copiat!
-            </p>
-          )}
+          <div className="flex min-h-48 items-end bg-[linear-gradient(145deg,var(--muted),var(--card))] p-5 lg:border-l lg:border-border">
+            <div><p className="text-xs font-bold uppercase tracking-widest text-primary">Următorul meci</p><p className="mt-2 text-lg font-bold text-foreground">{formatEventDate(event.date)}</p><p className="mt-1 text-sm text-muted-foreground">{event.time} · {event.locationName || getEventLocationName(event)}</p></div>
+          </div>
         </div>
-      </div>
-
-      <nav
-        aria-label="Secțiuni eveniment"
-        className="mt-6 flex flex-wrap gap-2"
-      >
-        {[
-          ["group", "Grup"],
-          ["teams", "Echipe"],
-          ...(isFootball ? [["cards", "Player Cards"]] : []),
-        ].map(([path, label]) => (
-          <Link
-            key={path}
-            href={`/event/${event.id}/${path}`}
-            className="inline-flex items-center rounded-full border border-border bg-card px-4 py-2 text-sm font-semibold text-card-foreground shadow-sm transition hover:border-primary/40 hover:text-primary active:scale-[0.98]"
-          >
-            {label}
-          </Link>
-        ))}
-      </nav>
-
-      {event.seriesId && (
-        <SeriesPanel
-          seriesId={event.seriesId}
-          currentViewedEventId={event.id}
-          isOwner={canManage}
-        />
-      )}
-
-      <AttendanceSection
-        eventId={event.id}
-        maxParticipants={event.maxParticipants}
-        pricePerHour={event.pricePerHour}
-        durationMinutes={event.durationMinutes}
-        ownerId={event.ownerId}
-        eventDate={event.date}
-        eventTime={event.time}
-        canManage={canManage}
-        paymentModel={event.paymentModel}
-        registrationLeadValue={event.registrationLeadValue}
-        registrationLeadUnit={event.registrationLeadUnit}
-        registrationOpenTime={event.registrationOpenTime}
-        view="response-confirmed"
-      />
-
-      {isFootball && (
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          Etapa {stageNumber}
-        </p>
-      )}
-    </div>
+        <div className="flex flex-col gap-2 border-t border-border p-4 sm:flex-row sm:flex-wrap">
+          <ShareOnWhatsAppButton event={event} className="sm:flex-1" />
+          <OpenInGoogleMapsButton event={event} className="sm:flex-1" />
+          <button type="button" onClick={handleCopyLink} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:bg-muted">{copied ? "Link copiat" : "Copiază linkul"}</button>
+          {canManage && <Link href={`/event/${event.id}/edit`} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-xl border border-primary/30 bg-primary/10 px-4 text-sm font-semibold text-primary transition hover:bg-primary/15">Editează evenimentul</Link>}
+          {canManage && !event.seriesId && <DeleteEventButton eventId={event.id} className="sm:flex-1" />}
+        </div>
+      </section>
+      {event.seriesId && <SeriesPanel seriesId={event.seriesId} currentViewedEventId={event.id} isOwner={canManage} />}
+      <AttendanceSection eventId={event.id} maxParticipants={event.maxParticipants} pricePerHour={event.pricePerHour} durationMinutes={event.durationMinutes} ownerId={event.ownerId} eventDate={event.date} eventTime={event.time} canManage={canManage} paymentModel={event.paymentModel} registrationLeadValue={event.registrationLeadValue} registrationLeadUnit={event.registrationLeadUnit} registrationOpenTime={event.registrationOpenTime} view="response-confirmed" />
+    </EventDashboardShell>
   );
+}
+
+function Summary({ label, value }: { label: string; value: string }) {
+  return <div className="min-w-0"><dt className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-semibold leading-6 text-foreground">{value}</dd></div>;
 }

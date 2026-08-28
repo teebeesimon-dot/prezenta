@@ -37,7 +37,7 @@ export default function PlayerCard({
 
   return (
     <article
-      className={`relative aspect-[644/900] shrink-0 overflow-hidden font-sans text-card-foreground drop-shadow-xl ${compact ? "w-40 sm:w-44" : "w-full max-w-xs"}`}
+      className={`relative aspect-[1381/1814] shrink-0 overflow-hidden font-sans text-card-foreground drop-shadow-xl ${compact ? "w-40 sm:w-44" : "w-full max-w-xs"}`}
       aria-label={`Card Bilka pentru ${playerName}`}
     >
       <img
@@ -47,12 +47,7 @@ export default function PlayerCard({
         className="pointer-events-none absolute inset-0 h-full w-full object-contain"
       />
 
-      <div className="absolute left-1/2 top-[12.2%] z-10 flex h-[6.5%] w-[29%] -translate-x-1/2 items-center justify-center gap-1 bg-[#a90016] px-1">
-        <img src="/player-cards/bilka-logo.jpg" alt="" className="h-full w-auto mix-blend-screen" />
-        <span className="text-[clamp(7px,2.5vw,12px)] font-black tracking-wide text-white">BILKA</span>
-      </div>
-
-      <div className="absolute left-[14%] top-[23%] z-10 text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.65)]">
+      <div className="absolute left-[15%] top-[25%] z-10 text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.65)]">
         <div className={`font-black leading-none ${compact ? "text-2xl" : "text-4xl"}`}>{card.overall}</div>
         <div className={`mt-1 font-extrabold ${compact ? "text-[10px]" : "text-sm"}`}>{card.position}</div>
         {card.jerseyNumber !== null && card.jerseyNumber !== undefined && (
@@ -60,7 +55,7 @@ export default function PlayerCard({
         )}
       </div>
 
-      <div className="absolute left-[27%] right-[9%] top-[24%] h-[39%] overflow-hidden">
+      <div className="absolute left-[27%] right-[10%] top-[24%] h-[41%] overflow-hidden">
         {card.cardImageUrl ? (
           <PrivateCardImage
             pathname={card.cardImageUrl}
@@ -76,14 +71,14 @@ export default function PlayerCard({
         )}
       </div>
 
-      <div className="absolute inset-x-[13%] top-[64%] z-10 text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.75)]">
+      <div className="absolute inset-x-[15%] top-[65%] z-10 text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.75)]">
         <div className={`truncate border-b border-white/40 pb-1 font-black uppercase tracking-tight ${compact ? "text-xs" : "text-xl"}`}>{playerName}</div>
         {isStage && (
           <div className={`mt-1 font-bold uppercase tracking-wider text-white/80 ${compact ? "text-[7px]" : "text-[10px]"}`}>Card special · Etapa {card.stageNumber}</div>
         )}
       </div>
 
-      <div className="absolute inset-x-[18%] top-[72%] z-10 grid grid-cols-2 gap-x-[17%] gap-y-0.5 text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
+      <div className="absolute inset-x-[20%] top-[73%] z-10 grid grid-cols-2 gap-x-[16%] gap-y-0.5 text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
         {stats.map(([label, value]) => (
           <div key={label} className={`flex items-baseline gap-1 font-black ${compact ? "text-[9px]" : "text-sm"}`}>
             <span>{value}</span>
