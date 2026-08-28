@@ -237,6 +237,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
                   longitude={event.longitude}
                   eventDate={event.date}
                   eventTime={event.time}
+                  durationMinutes={event.durationMinutes}
                   variant="inline"
                 />
               </div>

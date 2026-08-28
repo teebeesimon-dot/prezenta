@@ -34,7 +34,7 @@ export default function EventDashboardShell({ event, active = "overview", childr
       <div className="mt-4 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 flex flex-col gap-4">{children}</div>
         <aside className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-4">
-          <EventWeatherPanel latitude={event.latitude} longitude={event.longitude} eventDate={event.date} eventTime={event.time} />
+          <EventWeatherPanel latitude={event.latitude} longitude={event.longitude} eventDate={event.date} eventTime={event.time} durationMinutes={event.durationMinutes} />
           <section className="event-panel p-5">
             <h2 className="event-panel-title">Locație</h2>
             {(() => {

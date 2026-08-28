@@ -133,7 +133,7 @@ function PlayerCardThumb({
         aria-label={`Vezi cardul lui ${name}`}
         className="shrink-0 rounded-md transition hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
-        <PlayerCard card={card} playerName={name} widthClass="w-11 sm:w-12" />
+        <PlayerCard card={card} playerName={name} mini widthClass="w-12 sm:w-14" />
       </button>
     );
   }

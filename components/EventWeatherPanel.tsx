@@ -87,8 +87,22 @@ interface EventWeatherPanelProps {
   longitude?: number;
   eventDate: string;
   eventTime: string;
+  /** Event length in minutes; used to show the forecast through the end. */
+  durationMinutes?: number;
   /** "panel" = full sidebar card, "inline" = compact chip for the header. */
   variant?: "panel" | "inline";
+}
+
+/** Local naive-time key "YYYY-MM-DDTHH" for a date + minute offset (no timezone math). */
+function hourKey(dateStr: string, timeStr: string, addMinutes = 0): string {
+  const [h, m] = timeStr.split(":").map(Number);
+  const base = new Date(`${dateStr}T00:00:00`);
+  base.setHours(h, m + addMinutes, 0, 0);
+  const y = base.getFullYear();
+  const mo = String(base.getMonth() + 1).padStart(2, "0");
+  const d = String(base.getDate()).padStart(2, "0");
+  const hh = String(base.getHours()).padStart(2, "0");
+  return `${y}-${mo}-${d}T${hh}`;
 }
 
 export default function EventWeatherPanel({
@@ -96,6 +110,7 @@ export default function EventWeatherPanel({
   longitude,
   eventDate,
   eventTime,
+  durationMinutes = 0,
   variant = "panel",
 }: EventWeatherPanelProps) {
   const key =
@@ -106,12 +121,19 @@ export default function EventWeatherPanel({
     refreshInterval: 30 * 60 * 1000,
     revalidateOnFocus: false,
   });
-  const eventMs = new Date(`${eventDate}T${eventTime}:00`).getTime();
-  const byDistance = data?.hourly
-    .slice()
-    .sort((a, b) => Math.abs(new Date(a.time).getTime() - eventMs) - Math.abs(new Date(b.time).getTime() - eventMs));
-  const eventWeather = byDistance?.[0];
-  const forecast = byDistance?.slice(0, 5).sort((a, b) => a.time.localeCompare(b.time));
+  // Window: from 2h before kickoff (rounded up to the hour) through event end,
+  // matched on the location's local naive-hour string to avoid timezone drift.
+  const startKey = hourKey(eventDate, eventTime, -120);
+  const endKey = hourKey(eventDate, eventTime, durationMinutes);
+  const kickoffKey = hourKey(eventDate, eventTime);
+  const forecast = data?.hourly
+    .filter((h) => {
+      const key = h.time.slice(0, 13);
+      return key >= startKey && key <= endKey;
+    })
+    .sort((a, b) => a.time.localeCompare(b.time));
+  const eventWeather =
+    forecast?.find((h) => h.time.slice(0, 13) === kickoffKey) ?? forecast?.[0];
   const conditions = eventWeather
     ? {
         temperature: eventWeather.temperature,
@@ -194,12 +216,10 @@ export default function EventWeatherPanel({
             </div>
           </dl>
           {forecast && forecast.length > 0 && (
-            <div className="mt-4 grid grid-cols-5 gap-1">
+            <div className="mt-4 flex gap-1 overflow-x-auto">
               {forecast.map((hour) => (
-                <div key={hour.time} className="rounded-lg bg-muted/25 px-1 py-2 text-center">
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(hour.time).toLocaleTimeString("ro-RO", { hour: "2-digit", minute: "2-digit" })}
-                  </p>
+                <div key={hour.time} className="min-w-[3rem] flex-1 rounded-lg bg-muted/25 px-1 py-2 text-center">
+                  <p className="text-xs text-muted-foreground">{hour.time.slice(11, 16)}</p>
                   <WeatherIcon code={hour.code} className="mx-auto my-1.5 h-5 w-5" />
                   <p className="text-sm font-semibold">{Math.round(hour.temperature)}°</p>
                 </div>

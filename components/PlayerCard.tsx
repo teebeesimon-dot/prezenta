@@ -10,6 +10,8 @@ interface PlayerCardProps {
   playerPhoto?: string | null;
   /** Overrides the width class (e.g. "w-14") for tiny thumbnails. */
   widthClass?: string;
+  /** Tiny thumbnail: only overall + position + photo, no name/stats. */
+  mini?: boolean;
 }
 
 export default function PlayerCard({
@@ -17,6 +19,7 @@ export default function PlayerCard({
   compact = false,
   playerName: playerNameProp,
   widthClass,
+  mini = false,
 }: PlayerCardProps) {
   const isStage = "awardIds" in card;
   const playerName = playerNameProp?.trim() || card.playerName?.trim() || "Jucător";
@@ -37,6 +40,42 @@ export default function PlayerCard({
         ["DEF", card.defending],
         ["PHY", card.physical],
       ];
+
+  if (mini) {
+    return (
+      <article
+        className={`relative aspect-[1381/1814] shrink-0 overflow-hidden font-sans drop-shadow ${widthClass ?? "w-12"}`}
+        aria-label={`Card pentru ${playerName}, OVR ${card.overall} ${card.position}`}
+      >
+        <img
+          src="/player-cards/bilka-template.png"
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+        />
+        <div className="absolute left-[27%] right-[10%] top-[24%] h-[41%] overflow-hidden">
+          {card.cardImageUrl ? (
+            <PrivateCardImage
+              pathname={card.cardImageUrl}
+              alt=""
+              className="h-full w-full object-contain object-bottom"
+            />
+          ) : (
+            <img
+              src="/player-cards/generic-player.png"
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-contain object-bottom opacity-90"
+            />
+          )}
+        </div>
+        <div className="absolute left-[13%] top-[24%] z-10 text-center leading-none text-white [text-shadow:0_1px_1px_rgba(0,0,0,0.8)]">
+          <div className="text-[11px] font-black">{card.overall}</div>
+          <div className="text-[6px] font-extrabold">{card.position}</div>
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article
