@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { subscribeToGroupMembers, type Member } from "@/lib/members";
 import { db } from "@/lib/firebase";
 import PlayerCard from "@/components/PlayerCard";
+import CardImageUploader from "@/components/CardImageUploader";
 import {
   createStageVote,
   getMyStageVotes,
@@ -20,6 +21,7 @@ import {
   hydratePlayerCard,
   reportPlayerCardsError,
   STAGE_AWARD_OPTIONS,
+  updatePlayerCardPhoto,
   type PlayerCardData,
   type StageCard,
 } from "@/lib/player-cards";
@@ -183,6 +185,17 @@ export default function PlayerCardSection({
     };
   }, [groupId, currentStageNumber, user]);
 
+  async function saveOwnPhoto(pathname: string) {
+    if (!user) return;
+    try {
+      await updatePlayerCardPhoto(groupId, user.uid, pathname);
+      setAllBaseCards((current) => current.map((card) => card.userId === user.uid ? { ...card, cardImageUrl: pathname } : card));
+      setDataMessage("");
+    } catch (error) {
+      setDataMessage(reportPlayerCardsError(error, "Salvarea fotografiei", "playerCards"));
+    }
+  }
+
   async function vote(awardId: string) {
     if (!user || !selection[awardId] || voted[awardId]) return;
     setSavingVote(awardId);
@@ -253,6 +266,15 @@ export default function PlayerCardSection({
               <div className="mt-5 flex flex-col gap-6 md:flex-row">
                 <PlayerCard card={active ?? permanent} playerName={member?.userName} playerPhoto={member?.userPhoto} />
                 <div className="min-w-0 flex-1">
+                  {selectedUserId === user?.uid && (
+                    <div className="mb-6 rounded-xl border border-border bg-card p-4">
+                      <h3 className="font-bold text-foreground">Fotografia mea</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">Încarcă un portret decupat cât mai clar. Dacă nu alegi o fotografie, cardul folosește avatarul generic.</p>
+                      <div className="mt-3">
+                        <CardImageUploader groupId={groupId} userId={user.uid} variant="permanent" onUploaded={saveOwnPhoto} />
+                      </div>
+                    </div>
+                  )}
                   <h3 className="font-bold text-foreground">Istoric carduri speciale</h3>
                   {specialCards.length ? <div className="mt-3 grid grid-cols-2 gap-3">{specialCards.map((card) => <div key={card.id}><p className="mb-1 text-xs font-bold text-muted-foreground">Etapa {card.stageNumber}</p><PlayerCard card={card} compact /></div>)}</div> : <p className="mt-2 text-sm text-muted-foreground">Nu există carduri speciale.</p>}
                 </div>

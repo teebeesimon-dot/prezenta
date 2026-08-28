@@ -8,6 +8,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import { FirebaseError } from "firebase/app";
@@ -246,6 +247,13 @@ export async function savePlayerCard(card: PlayerCardData, updatedBy: string): P
     createdBy: updatedBy,
   });
 }
+export async function updatePlayerCardPhoto(groupId: string, userId: string, cardImageUrl: string): Promise<void> {
+  await updateDoc(doc(db, "playerCards", `${groupId}_${userId}`), {
+    cardImageUrl,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function getPlayerCards(groupId: string): Promise<PlayerCardData[]> { const snap = await getDocs(query(collection(db, "playerCards"), where("groupId", "==", groupId))); return snap.docs.map((d) => hydratePlayerCard(d.data() as PlayerCardData)); }
 export function subscribePlayerCards(
   groupId: string,

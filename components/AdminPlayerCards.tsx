@@ -104,7 +104,7 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
     <section className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
       <h3 className="text-lg font-bold text-foreground">Carduri jucatori</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Seteaza OVR-ul si atributele fiecarui jucator. Categoria Bronze / Silver / Gold se stabileste automat.
+        Setează OVR-ul, poziția, atributele și fotografia fiecărui jucător. Toți folosesc modelul oficial Bilka.
       </p>
 
       <select
@@ -189,9 +189,9 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
           </label>
 
           <div className="sm:col-span-2">
-            <div className="mb-2 text-sm font-medium text-foreground">Imagine card permanent</div>
+            <div className="mb-2 text-sm font-medium text-foreground">Fotografia jucătorului</div>
             <CardImageUploader groupId={groupId} userId={form.userId} variant="permanent" onUploaded={(pathname) => setForm({ ...form, cardImageUrl: pathname })} />
-            {form.cardImageUrl && <p className="mt-2 text-xs font-semibold text-primary">Imagine încărcată. Salvează cardul pentru a o publica.</p>}
+            {form.cardImageUrl && <p className="mt-2 text-xs font-semibold text-primary">Fotografie încărcată. Salvează cardul pentru a o publica.</p>}
           </div>
 
           <div className="sm:col-span-2 flex items-center justify-between gap-3">

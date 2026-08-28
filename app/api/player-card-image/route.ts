@@ -15,7 +15,10 @@ export async function POST(request: NextRequest) {
     if (!(file instanceof File) || !groupId || !userId) {
       return NextResponse.json({ error: "Date de încărcare incomplete." }, { status: 400 });
     }
-    await requireGroupOwner(request, groupId);
+    const requesterId = await requireFirebaseUser(request);
+    if (variant === "special" || requesterId !== userId) {
+      await requireGroupOwner(request, groupId);
+    }
     if (!ALLOWED_TYPES.has(file.type)) {
       return NextResponse.json({ error: "Folosește JPG, PNG sau WebP." }, { status: 415 });
     }

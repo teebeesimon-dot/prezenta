@@ -61,7 +61,7 @@ export default function CardImageUploader({ groupId, userId, variant, onUploaded
         onDrop={(event) => { event.preventDefault(); choose(event.dataTransfer.files[0] ?? null); }}
         className="flex min-h-32 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 p-4 text-center text-sm font-semibold text-foreground transition hover:bg-muted"
       >
-        {preview ? <img src={preview} alt="Previzualizare card" className="max-h-48 rounded-lg object-contain" /> : <><span>Trage imaginea aici</span><span className="text-xs font-normal text-muted-foreground">sau apasă pentru JPG, PNG, WebP · max. 8 MB</span></>}
+        {preview ? <img src={preview} alt={variant === "permanent" ? "Previzualizare fotografie" : "Previzualizare card special"} className="max-h-48 rounded-lg object-contain" /> : <><span>{variant === "permanent" ? "Trage fotografia jucătorului aici" : "Trage imaginea cardului special aici"}</span><span className="text-xs font-normal text-muted-foreground">sau apasă pentru JPG, PNG, WebP · max. 8 MB</span></>}
       </button>
       <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => choose(event.target.files?.[0] ?? null)} />
       {file && <button type="button" disabled={busy} onClick={upload} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-60">{busy ? "Se încarcă..." : "Încarcă imaginea"}</button>}

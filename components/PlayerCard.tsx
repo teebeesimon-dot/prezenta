@@ -1,13 +1,7 @@
 "use client";
 
 import PrivateCardImage from "@/components/PrivateCardImage";
-import { getCardTier, type PlayerCardData, type StageCard } from "@/lib/player-cards";
-
-function tierClasses(tier: ReturnType<typeof getCardTier>) {
-  if (tier === "gold") return "from-amber-200 via-yellow-100 to-amber-400 text-amber-950";
-  if (tier === "silver") return "from-slate-200 via-white to-slate-400 text-slate-950";
-  return "from-orange-200 via-amber-100 to-orange-400 text-orange-950";
-}
+import type { PlayerCardData, StageCard } from "@/lib/player-cards";
 
 interface PlayerCardProps {
   card: PlayerCardData | StageCard;
@@ -16,13 +10,13 @@ interface PlayerCardProps {
   playerPhoto?: string | null;
 }
 
-export default function PlayerCard({ card, compact = false, playerName: playerNameProp, playerPhoto: playerPhotoProp }: PlayerCardProps) {
-  const tier = getCardTier(card.overall);
+export default function PlayerCard({
+  card,
+  compact = false,
+  playerName: playerNameProp,
+}: PlayerCardProps) {
   const isStage = "awardIds" in card;
-  const playerName = playerNameProp?.trim() || card.playerName?.trim() || "Jucator";
-  const awards = isStage ? card.awards : [];
-  const form = !isStage ? card.form : undefined;
-  const formLabel = form === "in_form" ? "Formă bună" : form === "out_of_form" ? "Formă scăzută" : "Formă stabilă";
+  const playerName = playerNameProp?.trim() || card.playerName?.trim() || "Jucător";
   const stats = card.position === "GK"
     ? [
         ["DIV", card.diving],
@@ -42,44 +36,60 @@ export default function PlayerCard({ card, compact = false, playerName: playerNa
       ];
 
   return (
-    <article className={`relative overflow-hidden rounded-[26px] border border-white/60 bg-gradient-to-br ${tierClasses(tier)} shadow-xl ${compact ? "w-44" : "w-full max-w-xs"}`}>
-      <div className="absolute inset-x-0 top-0 h-20 bg-white/20 blur-xl" />
-      <div className="relative p-3">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-3xl font-black leading-none">{card.overall}</div>
-            <div className="mt-1 text-[10px] font-extrabold uppercase tracking-widest opacity-80">{isStage ? `Etapa ${card.stageNumber}` : tier}</div>
-          </div>
-          <div className="text-right text-xs font-black uppercase">{card.position}</div>
-        </div>
+    <article
+      className={`relative aspect-[644/900] shrink-0 overflow-hidden font-sans text-card-foreground drop-shadow-xl ${compact ? "w-40 sm:w-44" : "w-full max-w-xs"}`}
+      aria-label={`Card Bilka pentru ${playerName}`}
+    >
+      <img
+        src="/player-cards/bilka-template.png"
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+      />
 
-        <div className="relative mt-2 aspect-[4/5] overflow-hidden rounded-2xl bg-black/10">
-          {card.cardImageUrl ? (
-            <PrivateCardImage pathname={card.cardImageUrl} alt={`Card ${playerName}`} className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center bg-black/10 px-4 text-center text-sm font-bold text-black/55">
-              Card indisponibil
-            </div>
-          )}
-        </div>
+      <div className="absolute left-1/2 top-[12.2%] z-10 flex h-[6.5%] w-[29%] -translate-x-1/2 items-center justify-center gap-1 bg-[#a90016] px-1">
+        <img src="/player-cards/bilka-logo.jpg" alt="" className="h-full w-auto mix-blend-screen" />
+        <span className="text-[clamp(7px,2.5vw,12px)] font-black tracking-wide text-white">BILKA</span>
+      </div>
 
-        <div className="mt-3 text-center">
-          <div className="truncate text-xl font-black uppercase tracking-tight">{playerName}</div>
-          {!isStage && form && (
-            <div className="mt-2 text-[10px] font-extrabold uppercase tracking-wider opacity-75">{formLabel}</div>
-          )}
-          {isStage && awards.length > 0 && (
-            <div className="mt-2 flex flex-wrap justify-center gap-1">
-              {awards.map((award) => <span key={award.awardId} className="rounded-full bg-black/10 px-2 py-1 text-[10px] font-bold">{award.label}</span>)}
-            </div>
-          )}
-        </div>
-
-        {stats.length > 0 && !compact && (
-          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-black/10 pt-3">
-            {stats.map(([label, value]) => <div key={label} className="text-center"><div className="text-sm font-black">{value}</div><div className="text-[9px] font-bold opacity-70">{label}</div></div>)}
-          </div>
+      <div className="absolute left-[14%] top-[23%] z-10 text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.65)]">
+        <div className={`font-black leading-none ${compact ? "text-2xl" : "text-4xl"}`}>{card.overall}</div>
+        <div className={`mt-1 font-extrabold ${compact ? "text-[10px]" : "text-sm"}`}>{card.position}</div>
+        {card.jerseyNumber !== null && card.jerseyNumber !== undefined && (
+          <div className={`mt-1 border-t border-white/45 pt-1 font-bold ${compact ? "text-[8px]" : "text-xs"}`}>#{card.jerseyNumber}</div>
         )}
+      </div>
+
+      <div className="absolute left-[27%] right-[9%] top-[24%] h-[39%] overflow-hidden">
+        {card.cardImageUrl ? (
+          <PrivateCardImage
+            pathname={card.cardImageUrl}
+            alt={`Fotografie ${playerName}`}
+            className="h-full w-full object-contain object-bottom drop-shadow-[0_8px_8px_rgba(0,0,0,0.45)]"
+          />
+        ) : (
+          <img
+            src="/player-cards/generic-player.png"
+            alt="Portret generic de jucător"
+            className="h-full w-full object-contain object-bottom opacity-90"
+          />
+        )}
+      </div>
+
+      <div className="absolute inset-x-[13%] top-[64%] z-10 text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.75)]">
+        <div className={`truncate border-b border-white/40 pb-1 font-black uppercase tracking-tight ${compact ? "text-xs" : "text-xl"}`}>{playerName}</div>
+        {isStage && (
+          <div className={`mt-1 font-bold uppercase tracking-wider text-white/80 ${compact ? "text-[7px]" : "text-[10px]"}`}>Card special · Etapa {card.stageNumber}</div>
+        )}
+      </div>
+
+      <div className="absolute inset-x-[18%] top-[72%] z-10 grid grid-cols-2 gap-x-[17%] gap-y-0.5 text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
+        {stats.map(([label, value]) => (
+          <div key={label} className={`flex items-baseline gap-1 font-black ${compact ? "text-[9px]" : "text-sm"}`}>
+            <span>{value}</span>
+            <span className={`font-bold text-white/80 ${compact ? "text-[6px]" : "text-[9px]"}`}>{label}</span>
+          </div>
+        ))}
       </div>
     </article>
   );

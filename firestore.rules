@@ -170,12 +170,17 @@ match /playerCards/{cardId} {
 
   allow get, list: if isAuthenticated();
   allow create: if isGroupOwner(request.resource.data.groupId) && validCardId() && validCardFields() && request.resource.data.updatedBy == request.auth.uid;
-  allow update: if isGroupOwner(resource.data.groupId)
+  allow update: if (isGroupOwner(resource.data.groupId)
     && validCardId()
     && validCardFields()
     && request.resource.data.updatedBy == request.auth.uid
     && request.resource.data.groupId == resource.data.groupId
-    && request.resource.data.userId == resource.data.userId;
+    && request.resource.data.userId == resource.data.userId)
+    || (isAuthenticated()
+      && resource.data.userId == request.auth.uid
+      && request.resource.data.groupId == resource.data.groupId
+      && request.resource.data.userId == resource.data.userId
+      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cardImageUrl', 'updatedAt']));
   allow delete: if false;
   }
 
