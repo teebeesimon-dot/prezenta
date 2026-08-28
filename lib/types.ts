@@ -78,6 +78,7 @@ export interface Event {
   locationName?: string;
   latitude?: number;
   longitude?: number;
+  heroImageUrl?: string;
   maxParticipants: number;
   footballFormat?: FootballFormat;
   ownerId: string;
@@ -116,6 +117,7 @@ export interface Series {
   locationName?: string;
   latitude?: number;
   longitude?: number;
+  heroImageUrl?: string;
   ownerId: string;
   frequency: "weekly" | "biweekly";
   startDate: string;

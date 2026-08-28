@@ -43,6 +43,7 @@ export function mapFirestoreEvent(
     locationName: (data.locationName as string) ?? undefined,
     latitude: (data.latitude as number) ?? undefined,
     longitude: (data.longitude as number) ?? undefined,
+    heroImageUrl: (data.heroImageUrl as string) ?? undefined,
     maxParticipants: (data.maxParticipants as number) ?? 0,
     footballFormat: data.footballFormat as Event["footballFormat"],
     ownerId: (data.ownerId as string) ?? "",
@@ -59,6 +60,20 @@ export function mapFirestoreEvent(
     teams: mapFirestoreTeams(data.teams),
     participants: (data.participants as Event["participants"]) ?? [],
   };
+}
+
+const DEFAULT_HERO_BY_SPORT: Record<Sport, string> = {
+  football: "/event-heroes/football.png",
+  tennis: "/event-heroes/tennis.png",
+  padel: "/event-heroes/padel.png",
+};
+
+/** Returns the event's custom hero image, falling back to a generic per-sport photo. */
+export function getEventHeroImage(event: {
+  heroImageUrl?: string;
+  sport: Sport;
+}): string {
+  return event.heroImageUrl || DEFAULT_HERO_BY_SPORT[event.sport] || DEFAULT_HERO_BY_SPORT.football;
 }
 
 export function formatEventDate(date: string): string {

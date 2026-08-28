@@ -8,12 +8,15 @@ interface PlayerCardProps {
   compact?: boolean;
   playerName?: string;
   playerPhoto?: string | null;
+  /** Overrides the width class (e.g. "w-14") for tiny thumbnails. */
+  widthClass?: string;
 }
 
 export default function PlayerCard({
   card,
   compact = false,
   playerName: playerNameProp,
+  widthClass,
 }: PlayerCardProps) {
   const isStage = "awardIds" in card;
   const playerName = playerNameProp?.trim() || card.playerName?.trim() || "Jucător";
@@ -37,7 +40,7 @@ export default function PlayerCard({
 
   return (
     <article
-      className={`relative aspect-[1381/1814] shrink-0 overflow-hidden font-sans text-card-foreground drop-shadow-xl ${compact ? "w-40 sm:w-44" : "w-full max-w-xs"}`}
+      className={`relative aspect-[1381/1814] shrink-0 overflow-hidden font-sans text-card-foreground drop-shadow-xl ${widthClass ?? (compact ? "w-40 sm:w-44" : "w-full max-w-xs")}`}
       aria-label={`Card Bilka pentru ${playerName}`}
     >
       <img

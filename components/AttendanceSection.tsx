@@ -2,8 +2,10 @@
 
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { useEffect, useState } from "react";
+import PlayerCard from "@/components/PlayerCard";
 import { useAuth } from "@/contexts/AuthProvider";
 import { db } from "@/lib/firebase";
+import type { PlayerCardData } from "@/lib/player-cards";
 import {
   computeGoingLists,
   findUserGoingPosition,
@@ -45,6 +47,10 @@ interface AttendanceSectionProps {
   registrationLeadUnit?: "hours" | "days";
   registrationOpenTime?: string;
   view?: "all" | "response" | "lists" | "response-confirmed";
+  /** FIFA-style player cards for the group, keyed by userId. */
+  playerCards?: Record<string, PlayerCardData>;
+  /** Opens the player card detail modal for a given user. */
+  onOpenCard?: (userId: string) => void;
 }
 
 const MAYBE_CONFIG = {
@@ -107,16 +113,53 @@ function ParticipantAvatar({
   );
 }
 
+/** Tiny FIFA card thumbnail (clickable) with an avatar fallback. */
+function PlayerCardThumb({
+  card,
+  name,
+  photoURL,
+  onOpen,
+}: {
+  card?: PlayerCardData;
+  name: string;
+  photoURL: string | null;
+  onOpen?: () => void;
+}) {
+  if (card && onOpen) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Vezi cardul lui ${name}`}
+        className="shrink-0 rounded-md transition hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      >
+        <PlayerCard card={card} playerName={name} widthClass="w-11 sm:w-12" />
+      </button>
+    );
+  }
+  return <ParticipantAvatar name={name} photoURL={photoURL} />;
+}
+
+/** Position + overall sub-label derived from the player's card, if any. */
+function positionOverall(card?: PlayerCardData): string | null {
+  if (!card) return null;
+  return `${card.position} · OVR ${card.overall}`;
+}
+
 function RankedParticipantList({
   title,
   participants,
   className,
   emptyMessage,
+  playerCards,
+  onOpenCard,
 }: {
   title: string;
   participants: RankedParticipantEntry[];
   className: string;
   emptyMessage: string;
+  playerCards?: Record<string, PlayerCardData>;
+  onOpenCard?: (userId: string) => void;
 }) {
   return (
     <div className={`rounded-2xl border p-4 ${className}`}>

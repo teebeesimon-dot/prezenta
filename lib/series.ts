@@ -43,6 +43,7 @@ export function mapFirestoreSeries(
     locationName: (data.locationName as string) ?? undefined,
     latitude: (data.latitude as number) ?? undefined,
     longitude: (data.longitude as number) ?? undefined,
+    heroImageUrl: (data.heroImageUrl as string) ?? undefined,
     ownerId: (data.ownerId as string) ?? "",
     frequency: (data.frequency as RecurrenceFrequency) ?? "weekly",
     startDate: (data.startDate as string) ?? "",
@@ -95,6 +96,7 @@ function buildOccurrenceData(
     paymentModel: PaymentModel;
     footballFormat?: Series["footballFormat"];
     pricePerHour?: number;
+    heroImageUrl?: string;
     registrationLeadValue?: number;
     registrationLeadUnit?: "hours" | "days";
     registrationOpenTime?: string;
@@ -110,6 +112,7 @@ function buildOccurrenceData(
     durationMinutes: series.durationMinutes,
     maxParticipants: series.maxParticipants,
     ...(series.footballFormat ? { footballFormat: series.footballFormat } : {}),
+    ...(series.heroImageUrl ? { heroImageUrl: series.heroImageUrl } : {}),
     ownerId: series.ownerId,
     paymentModel: series.paymentModel,
     // Price snapshot at materialization time (history keeps its own price).
@@ -256,6 +259,7 @@ export async function ensureCurrentOccurrence(
         paymentModel: series.paymentModel,
         footballFormat: series.footballFormat,
         pricePerHour: series.pricePerHour,
+        heroImageUrl: series.heroImageUrl,
         registrationLeadValue: series.registrationLeadValue,
         registrationLeadUnit: series.registrationLeadUnit,
         registrationOpenTime: series.registrationOpenTime,

@@ -1,10 +1,27 @@
 import Link from "next/link";
 import EventWeatherPanel from "@/components/EventWeatherPanel";
 import OpenInGoogleMapsButton from "@/components/OpenInGoogleMapsButton";
+import { getEventHeroImage } from "@/lib/events";
 import { formatLabel } from "@/lib/football-formats";
 import { getEventLocationName } from "@/lib/location";
 import { formatDuration, formatLei, computeTotalCost } from "@/lib/pricing";
 import type { Event } from "@/lib/types";
+
+const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+function staticMapUrl(lat?: number, lon?: number): string | null {
+  if (!MAPS_KEY || lat == null || lon == null) return null;
+  const params = new URLSearchParams({
+    center: `${lat},${lon}`,
+    zoom: "15",
+    size: "600x300",
+    scale: "2",
+    maptype: "roadmap",
+    markers: `color:0x22c55e|${lat},${lon}`,
+    key: MAPS_KEY,
+  });
+  return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
+}
 
 export default function EventDashboardShell({ event, active = "overview", children }: { event: Event; active?: "overview" | "group" | "confirmed" | "teams" | "cards"; children: React.ReactNode }) {
   const links = [{ id: "overview", label: "Eveniment", href: `/event/${event.id}` }, { id: "group", label: "Grup", href: `/event/${event.id}/group` }, ...(event.sport === "football" ? [{ id: "teams", label: "Echipe", href: `/event/${event.id}/teams` }, { id: "cards", label: "Player Cards", href: `/event/${event.id}/cards` }] : [])];
@@ -18,7 +35,38 @@ export default function EventDashboardShell({ event, active = "overview", childr
         <div className="min-w-0 flex flex-col gap-4">{children}</div>
         <aside className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-4">
           <EventWeatherPanel latitude={event.latitude} longitude={event.longitude} eventDate={event.date} eventTime={event.time} />
-          <section className="event-panel p-5"><h2 className="event-panel-title">Locație</h2><div className="mt-4 rounded-xl border border-border bg-[linear-gradient(135deg,var(--muted),var(--card))] p-5"><div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground" aria-hidden="true">⌖</div></div><p className="mt-4 font-semibold text-foreground">{event.locationName || "Locația evenimentului"}</p><p className="mt-1 text-sm leading-6 text-muted-foreground">{getEventLocationName(event)}</p><OpenInGoogleMapsButton event={event} className="mt-4 w-full" /></section>
+          <section className="event-panel p-5">
+            <h2 className="event-panel-title">Locație</h2>
+            {(() => {
+              const mapUrl = staticMapUrl(event.latitude, event.longitude);
+              return (
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {mapUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={mapUrl}
+                      alt={`Hartă pentru ${getEventLocationName(event)}`}
+                      className="h-28 w-full rounded-xl border border-border object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-28 w-full items-center justify-center rounded-xl border border-border bg-[linear-gradient(135deg,var(--muted),var(--card))]">
+                      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground" aria-hidden="true">⌖</span>
+                    </div>
+                  )}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={getEventHeroImage(event)}
+                    alt=""
+                    aria-hidden="true"
+                    className="h-28 w-full rounded-xl border border-border object-cover"
+                  />
+                </div>
+              );
+            })()}
+            <p className="mt-4 font-semibold text-foreground">{event.locationName || "Locația evenimentului"}</p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{getEventLocationName(event)}</p>
+            <OpenInGoogleMapsButton event={event} className="mt-4 w-full" />
+          </section>
           <section className="event-panel p-5"><h2 className="event-panel-title">Detalii eveniment</h2><dl className="mt-4 flex flex-col gap-3 text-sm">
             <Detail label="Tip" value={event.seriesId ? "Serie" : "Eveniment unic"} />
             {event.footballFormat && <Detail label="Format" value={formatLabel(event.footballFormat)} />}
