@@ -7,8 +7,8 @@ import { getEventLocationName } from "@/lib/location";
 import { formatDuration, formatLei, computeTotalCost } from "@/lib/pricing";
 import type { Event } from "@/lib/types";
 
-export default function EventDashboardShell({ event, active = "overview", children }: { event: Event; active?: "overview" | "group" | "confirmed" | "teams" | "cards"; children: React.ReactNode }) {
-  const links = [{ id: "overview", label: "Eveniment", href: `/event/${event.id}` }, { id: "group", label: "Grup", href: `/event/${event.id}/group` }, ...(event.sport === "football" ? [{ id: "teams", label: "Echipe", href: `/event/${event.id}/teams` }, { id: "cards", label: "Player Cards", href: `/event/${event.id}/cards` }] : [])];
+export default function EventDashboardShell({ event, active = "overview", children }: { event: Event; active?: "overview" | "group" | "confirmed" | "teams" | "matches" | "cards"; children: React.ReactNode }) {
+  const links = [{ id: "overview", label: "Eveniment", href: `/event/${event.id}` }, { id: "group", label: "Grup", href: `/event/${event.id}/group` }, ...(event.sport === "football" ? [{ id: "teams", label: "Echipe", href: `/event/${event.id}/teams` }, { id: "matches", label: "Meciuri", href: `/event/${event.id}/matches` }, { id: "cards", label: "Player Cards", href: `/event/${event.id}/cards` }] : [])];
   return (
     <main className="mx-auto w-full max-w-[1480px] px-3 py-5 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-center justify-between gap-3">

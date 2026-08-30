@@ -76,6 +76,16 @@ export interface PlayerCardData extends OutfieldAttributes, GoalkeeperAttributes
   playerPhoto?: string | null;
   cardImageUrl?: string | null;
   overall: number;
+  /** Immutable balancing strength; falls back to legacy overall. */
+  initialOverall?: number;
+  /** Derived display strength after Evolution and awards. */
+  currentOverall?: number;
+  evolutionLevel?: number;
+  evolutionBonus?: number;
+  awardBonus?: number;
+  cardType?: "standard" | "evolution-1" | "evolution-2" | "evolution-3" | "evolution-4" | "evolution-5" | "stage-player" | "stage-goalkeeper" | "legend" | "toty";
+  isInjured?: boolean;
+  isLegend?: boolean;
   position: PlayerPosition;
   jerseyNumber?: number | null;
   suggestedOverall?: number;
@@ -183,9 +193,18 @@ export const defaultPlayerCard = (userId: string, groupId: string): PlayerCardDa
 });
 
 export function hydratePlayerCard(card: PlayerCardData): PlayerCardData {
+  const initialOverall = card.initialOverall ?? card.overall ?? DEFAULT_RATING;
   return {
     ...defaultPlayerCard(card.userId, card.groupId),
     ...card,
+    initialOverall,
+    currentOverall: card.currentOverall ?? card.overall ?? initialOverall,
+    evolutionLevel: card.evolutionLevel ?? 0,
+    evolutionBonus: card.evolutionBonus ?? 0,
+    awardBonus: card.awardBonus ?? 0,
+    cardType: card.cardType ?? "standard",
+    isInjured: card.isInjured ?? false,
+    isLegend: card.isLegend ?? false,
     diving: card.diving ?? card.pace ?? DEFAULT_RATING,
     handling: card.handling ?? card.defending ?? DEFAULT_RATING,
     kicking: card.kicking ?? card.passing ?? DEFAULT_RATING,
@@ -210,6 +229,14 @@ export async function savePlayerCard(card: PlayerCardData, updatedBy: string): P
     playerPhoto: hydrated.playerPhoto ?? null,
     cardImageUrl: hydrated.cardImageUrl ?? null,
     overall: clampRating(hydrated.overall),
+    initialOverall: clampRating(hydrated.initialOverall ?? hydrated.overall),
+    currentOverall: clampRating(hydrated.currentOverall ?? hydrated.overall),
+    evolutionLevel: hydrated.evolutionLevel ?? 0,
+    evolutionBonus: hydrated.evolutionBonus ?? 0,
+    awardBonus: hydrated.awardBonus ?? 0,
+    cardType: hydrated.cardType ?? "standard",
+    isInjured: hydrated.isInjured ?? false,
+    isLegend: hydrated.isLegend ?? false,
     position: hydrated.position,
     jerseyNumber: hydrated.jerseyNumber ?? null,
     updatedBy,

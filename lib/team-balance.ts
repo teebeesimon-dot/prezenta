@@ -17,7 +17,7 @@ const POSITION_ORDER: PlayerPosition[] = ["GK", "DEF", "MID", "ATT"];
 
 function teamScore(team: ParticipantEntry[], cards: ReadonlyMap<string, PlayerCardData>): number {
   if (!team.length) return 0;
-  return team.reduce((sum, player) => sum + (cards.get(player.userId)?.overall ?? 65), 0) / team.length;
+  return team.reduce((sum, player) => sum + (cards.get(player.userId)?.initialOverall ?? cards.get(player.userId)?.overall ?? 65), 0) / team.length;
 }
 
 function positionCount(team: ParticipantEntry[], position: PlayerPosition, cards: ReadonlyMap<string, PlayerCardData>): number {
@@ -33,16 +33,17 @@ export function generateBalancedTeams(
   const targetSizes = Array.from({ length: teamCount }, (_, index) =>
     Math.floor(players.length / teamCount) + (index < players.length % teamCount ? 1 : 0),
   );
-  const sorted = [...players].sort((a, b) => {
+  const eligiblePlayers = players.filter((player) => !cards.get(player.userId)?.isLegend);
+  const sorted = [...eligiblePlayers].sort((a, b) => {
     const positionDiff = POSITION_ORDER.indexOf(cards.get(a.userId)?.position ?? "MID") - POSITION_ORDER.indexOf(cards.get(b.userId)?.position ?? "MID");
     if (positionDiff !== 0) return positionDiff;
-    return (cards.get(b.userId)?.overall ?? 65) - (cards.get(a.userId)?.overall ?? 65);
+    return (cards.get(b.userId)?.initialOverall ?? cards.get(b.userId)?.overall ?? 65) - (cards.get(a.userId)?.initialOverall ?? cards.get(a.userId)?.overall ?? 65);
   });
 
   for (const player of sorted) {
     const card = cards.get(player.userId);
     const position = card?.position ?? "MID";
-    const overall = card?.overall ?? 65;
+    const overall = card?.initialOverall ?? card?.overall ?? 65;
     const candidates = teams
       .map((team, index) => ({
         index,
