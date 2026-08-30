@@ -3,7 +3,7 @@
 import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { subscribePlayerCards } from "@/lib/player-cards";
-import { emptyScoringSettings, recalculateFootballSystem, type EvolutionLevel, type FootballMatch, type PlayerProgress, type ScoringSettings } from "@/lib/football-system";
+import { emptyScoringSettings, recalculateFootballSystem, validateFootballMatchWinner, type EvolutionLevel, type FootballMatch, type PlayerProgress, type ScoringSettings } from "@/lib/football-system";
 
 const DEFAULT_EVOLUTION: EvolutionLevel[] = [1, 2, 3, 4, 5].map((level) => ({ level: level as 1|2|3|4|5, points: null, overallBonus: null }));
 
@@ -40,14 +40,16 @@ export async function saveEvolutionSettings(groupId: string, levels: EvolutionLe
   await recalculateGroup(groupId);
 }
 export async function createFootballMatch(input: Omit<FootballMatch, "id">, actorId: string) {
-  const ref = await addDoc(collection(db, "footballMatches"), { ...input, actorId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-  await recalculateGroup(input.groupId);
+  const validated = validateFootballMatchWinner(input);
+  const ref = await addDoc(collection(db, "footballMatches"), { ...validated, actorId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  await recalculateGroup(validated.groupId);
   return ref.id;
 }
 export async function updateFootballMatch(match: FootballMatch, actorId: string) {
-  const { id, ...data } = match;
+  const validated = validateFootballMatchWinner(match);
+  const { id, ...data } = validated;
   await updateDoc(doc(db, "footballMatches", id), { ...data, actorId, updatedAt: serverTimestamp() });
-  await recalculateGroup(match.groupId);
+  await recalculateGroup(validated.groupId);
 }
 export async function deleteFootballMatch(match: FootballMatch) {
   await deleteDoc(doc(db, "footballMatches", match.id));
