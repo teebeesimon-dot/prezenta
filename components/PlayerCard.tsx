@@ -121,13 +121,24 @@ export default function PlayerCard({
         )}
       </div>
 
-      <div className="absolute inset-x-[19%] top-[71%] z-10 grid grid-cols-2 gap-x-[14%] gap-y-[1cqw] text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
-        {stats.map(([label, value]) => (
-          <div key={label} className="flex items-baseline gap-[1.5cqw] font-black leading-none text-[4cqw]">
-            <span>{value}</span>
-            <span className="font-bold leading-none text-white/80 text-[2.6cqw]">{label}</span>
-          </div>
-        ))}
+      <div className="absolute inset-x-[16%] top-[71%] z-10 flex items-stretch text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
+        <div className="flex flex-1 flex-col gap-y-[2cqw] pr-[5cqw]">
+          {stats.slice(0, 3).map(([label, value]) => (
+            <div key={label} className="flex items-baseline gap-[2cqw] leading-none">
+              <span className="w-[8cqw] text-right font-black text-[4.4cqw]">{value}</span>
+              <span className="font-semibold uppercase text-white/85 text-[3.2cqw]">{label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="w-px self-stretch bg-white/45" aria-hidden="true" />
+        <div className="flex flex-1 flex-col gap-y-[2cqw] pl-[5cqw]">
+          {stats.slice(3, 6).map(([label, value]) => (
+            <div key={label} className="flex items-baseline gap-[2cqw] leading-none">
+              <span className="w-[8cqw] text-right font-black text-[4.4cqw]">{value}</span>
+              <span className="font-semibold uppercase text-white/85 text-[3.2cqw]">{label}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </article>
   );
