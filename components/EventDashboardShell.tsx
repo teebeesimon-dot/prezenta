@@ -7,22 +7,6 @@ import { getEventLocationName } from "@/lib/location";
 import { formatDuration, formatLei, computeTotalCost } from "@/lib/pricing";
 import type { Event } from "@/lib/types";
 
-const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-
-function staticMapUrl(lat?: number, lon?: number): string | null {
-  if (!MAPS_KEY || lat == null || lon == null) return null;
-  const params = new URLSearchParams({
-    center: `${lat},${lon}`,
-    zoom: "15",
-    size: "600x300",
-    scale: "2",
-    maptype: "roadmap",
-    markers: `color:0x22c55e|${lat},${lon}`,
-    key: MAPS_KEY,
-  });
-  return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
-}
-
 export default function EventDashboardShell({ event, active = "overview", children }: { event: Event; active?: "overview" | "group" | "confirmed" | "teams" | "cards"; children: React.ReactNode }) {
   const links = [{ id: "overview", label: "Eveniment", href: `/event/${event.id}` }, { id: "group", label: "Grup", href: `/event/${event.id}/group` }, ...(event.sport === "football" ? [{ id: "teams", label: "Echipe", href: `/event/${event.id}/teams` }, { id: "cards", label: "Player Cards", href: `/event/${event.id}/cards` }] : [])];
   return (
@@ -38,20 +22,26 @@ export default function EventDashboardShell({ event, active = "overview", childr
           <section className="event-panel p-5">
             <h2 className="event-panel-title">Locație</h2>
             {(() => {
-              const mapUrl = staticMapUrl(event.latitude, event.longitude);
               const venueName = event.locationName?.trim();
               const address = getEventLocationName(event);
               const showAddress = !!address && address !== venueName;
+              const mapQuery =
+                event.latitude != null && event.longitude != null
+                  ? `${event.latitude},${event.longitude}`
+                  : address;
+              const mapUrl = mapQuery
+                ? `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=15&output=embed`
+                : null;
               return (
                 <>
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     {mapUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <iframe
                         src={mapUrl}
-                        alt=""
-                        aria-hidden="true"
-                        className="h-28 w-full rounded-xl border border-border object-cover"
+                        title={`Hartă pentru ${venueName || address}`}
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                        className="h-28 w-full rounded-xl border border-border"
                       />
                     ) : (
                       <div className="flex h-28 w-full items-center justify-center rounded-xl border border-border bg-[linear-gradient(135deg,var(--muted),var(--card))]">
