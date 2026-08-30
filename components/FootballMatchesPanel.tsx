@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
+import PlayerCard from "@/components/PlayerCard";
+import { subscribePlayerCards, type PlayerCardData } from "@/lib/player-cards";
 import type { GeneratedTeams, ParticipantEntry } from "@/lib/types";
 import { createFootballMatch, deleteFootballMatch, saveEvolutionSettings, saveScoringSettings, subscribeEvolutionSettings, subscribeFootballMatches, subscribeFootballProgress, subscribeScoringSettings, updateFootballMatch, DEFAULT_EVOLUTION, emptyScoringSettings } from "@/lib/football-repository";
 import type { EvolutionLevel, FootballMatch, MatchPlayer, MatchPosition, PlayerProgress, ScoringKey, ScoringSettings } from "@/lib/football-system";
@@ -14,14 +16,20 @@ function teamArrays(teams?: GeneratedTeams | null): ParticipantEntry[][] {
   if (teams.teams?.length) return teams.teams;
   return [teams.teamA ?? [], teams.teamB ?? []].filter((team) => team.length > 0);
 }
-function draftPlayers(teams: ParticipantEntry[][]): MatchPlayer[] {
-  return teams.flatMap((team, teamIndex) => team.map((player) => ({ userId: player.userId, name: player.name, teamIndex, position: "MID" as MatchPosition, goals: 0 })));
+function draftPlayers(teams: ParticipantEntry[][], cards: PlayerCardData[]): MatchPlayer[] {
+  const cardsByUser = new Map(cards.map((card) => [card.userId, card]));
+  return teams.flatMap((team, teamIndex) => team.flatMap((player) => {
+    const card = cardsByUser.get(player.userId);
+    if (card?.isInjured) return [];
+    return [{ userId: player.userId, name: player.name, teamIndex, position: card?.position ?? "MID", goals: 0 }];
+  }));
 }
 
 export default function FootballMatchesPanel({ groupId, eventId, stageNumber, teams, canManage }: { groupId: string; eventId: string; stageNumber: number; teams?: GeneratedTeams | null; canManage: boolean }) {
   const { user } = useAuth();
   const availableTeams = useMemo(() => teamArrays(teams), [teams]);
   const [matches, setMatches] = useState<FootballMatch[]>([]);
+  const [cards, setCards] = useState<PlayerCardData[]>([]);
   const [progress, setProgress] = useState<PlayerProgress[]>([]);
   const [scoring, setScoring] = useState<ScoringSettings | null>(null);
   const [evolution, setEvolution] = useState<EvolutionLevel[]>(DEFAULT_EVOLUTION);
@@ -31,6 +39,7 @@ export default function FootballMatchesPanel({ groupId, eventId, stageNumber, te
   const [message, setMessage] = useState("");
 
   useEffect(() => subscribeFootballMatches(groupId, setMatches), [groupId]);
+  useEffect(() => subscribePlayerCards(groupId, setCards), [groupId]);
   useEffect(() => subscribeFootballProgress(groupId, setProgress), [groupId]);
   useEffect(() => subscribeScoringSettings(groupId, setScoring), [groupId]);
   useEffect(() => subscribeEvolutionSettings(groupId, setEvolution), [groupId]);
@@ -55,17 +64,17 @@ export default function FootballMatchesPanel({ groupId, eventId, stageNumber, te
       {availableTeams.length < 2 && <p className="mt-4 rounded-xl border border-border bg-muted p-3 text-sm text-muted-foreground">Generează mai întâi echipele pentru eveniment.</p>}
       {message && <p className="mt-4 text-sm text-muted-foreground">{message}</p>}
     </section>
-    {(showForm || editing) && <MatchEditor groupId={groupId} eventId={eventId} stageNumber={stageNumber} teams={availableTeams} initial={editing} nextOrder={matches.length + 1} saving={saving} onCancel={() => { setShowForm(false); setEditing(null); }} onSave={persist} />}
+    {(showForm || editing) && <MatchEditor groupId={groupId} eventId={eventId} stageNumber={stageNumber} teams={availableTeams} cards={cards} initial={editing} nextOrder={matches.length + 1} saving={saving} onCancel={() => { setShowForm(false); setEditing(null); }} onSave={persist} />}
     <section className="event-panel overflow-hidden"><div className="border-b border-border p-5"><h2 className="event-panel-title">Meciurile etapei</h2></div>{matches.length === 0 ? <p className="p-5 text-sm text-muted-foreground">Nu există meciuri înregistrate.</p> : <ul className="divide-y divide-border">{matches.map((match) => <li key={match.id} className="flex flex-wrap items-center justify-between gap-3 p-5"><div><p className="text-xs font-semibold uppercase text-muted-foreground">Etapa {match.stageNumber} · Meciul {match.matchOrder}</p><p className="mt-1 text-lg font-bold text-foreground">{match.teamNames.map((name,index) => `${name} ${match.scores[index] ?? 0}`).join(" — ")}</p>{match.penaltyWinnerIndex !== null && <p className="text-xs text-primary">Câștigătoare la penalty: {match.teamNames[match.penaltyWinnerIndex]}</p>}</div>{canManage && <div className="flex gap-2"><button type="button" onClick={() => { setEditing(match); setShowForm(false); }} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold">Editează</button><button type="button" onClick={async () => { if (confirm("Ștergi meciul și recalculezi toate statisticile?")) await deleteFootballMatch(match); }} className="rounded-lg border border-destructive/40 px-3 py-2 text-sm font-semibold text-destructive">Șterge</button></div>}</li>)}</ul>}</section>
     <Leaderboard progress={progress} />
     {canManage && user && <><ScoringEditor groupId={groupId} userId={user.uid} value={scoring} /><EvolutionEditor groupId={groupId} userId={user.uid} value={evolution} /></>}
   </div>;
 }
 
-function MatchEditor({ groupId,eventId,stageNumber,teams,initial,nextOrder,saving,onCancel,onSave }: {groupId:string;eventId:string;stageNumber:number;teams:ParticipantEntry[][];initial:FootballMatch|null;nextOrder:number;saving:boolean;onCancel:()=>void;onSave:(match:FootballMatch)=>void}) {
+function MatchEditor({ groupId,eventId,stageNumber,teams,cards,initial,nextOrder,saving,onCancel,onSave }: {groupId:string;eventId:string;stageNumber:number;teams:ParticipantEntry[][];cards:PlayerCardData[];initial:FootballMatch|null;nextOrder:number;saving:boolean;onCancel:()=>void;onSave:(match:FootballMatch)=>void}) {
   const names = teams.map((_, index) => `Echipa ${index + 1}`);
   const [scores,setScores]=useState<number[]>(initial?.scores ?? teams.map(()=>0));
-  const [players,setPlayers]=useState<MatchPlayer[]>(initial?.players ?? draftPlayers(teams));
+  const [players,setPlayers]=useState<MatchPlayer[]>(initial?.players ?? draftPlayers(teams, cards));
   const [penalty,setPenalty]=useState<number|null>(initial?.penaltyWinnerIndex ?? null);
   const [order,setOrder]=useState(initial?.matchOrder ?? nextOrder);
   const maxScore = Math.max(...scores);

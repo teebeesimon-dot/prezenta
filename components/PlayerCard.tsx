@@ -23,24 +23,6 @@ export default function PlayerCard({
 }: PlayerCardProps) {
   const isStage = "awardIds" in card;
   const playerName = playerNameProp?.trim() || card.playerName?.trim() || "Jucător";
-  const stats = card.position === "GK"
-    ? [
-        ["DIV", card.diving],
-        ["HAN", card.handling],
-        ["KIC", card.kicking],
-        ["REF", card.reflexes],
-        ["SPD", card.speed],
-        ["POS", card.positioning],
-      ]
-    : [
-        ["PAC", card.pace],
-        ["SHO", card.shooting],
-        ["PAS", card.passing],
-        ["DRI", card.dribbling],
-        ["DEF", card.defending],
-        ["PHY", card.physical],
-      ];
-
   const cardArtwork: Record<NonNullable<PlayerCardData["cardType"]>, string> = {
     standard: "/player-cards/bilka-template.png",
     "evolution-1": "/player-cards/evolution-1.png",
@@ -109,9 +91,7 @@ export default function PlayerCard({
       <div className="absolute left-[13%] top-[26%] z-10 w-[13%] text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.65)]">
         <div className="font-black leading-none text-[9cqw]">{displayedOverall}</div>
         <div className="mt-[2cqw] font-extrabold leading-none text-[3.6cqw]">{card.position}</div>
-        {card.jerseyNumber !== null && card.jerseyNumber !== undefined && (
-          <div className="mt-[2cqw] border-t border-white/45 pt-[1.5cqw] font-bold leading-none text-[3cqw]">#{card.jerseyNumber}</div>
-        )}
+
       </div>
 
       <div className="absolute left-[27%] right-[10%] top-[24%] h-[41%] overflow-hidden">
@@ -130,32 +110,17 @@ export default function PlayerCard({
         )}
       </div>
 
-      <div className="absolute inset-x-[15%] top-[64%] z-10 text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.75)]">
+      {"isInjured" in card && card.isInjured && (
+        <div className="absolute right-[9%] top-[22%] z-20 rounded-full bg-destructive px-[2.5cqw] py-[1.2cqw] font-black uppercase leading-none text-destructive-foreground text-[2.8cqw] shadow-lg">Accidentat</div>
+      )}
+
+      <div className="absolute inset-x-[15%] top-[67%] z-10 text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.75)]">
         <div className="truncate border-b border-white/40 pb-[1cqw] font-black uppercase leading-tight tracking-tight text-[5.5cqw]">{playerName}</div>
         {isStage && (
           <div className="mt-[1cqw] font-bold uppercase leading-none tracking-wider text-white/80 text-[2.6cqw]">Card special · Etapa {card.stageNumber}</div>
         )}
       </div>
 
-      <div className="absolute inset-x-[16%] top-[71%] z-10 flex items-stretch text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
-        <div className="flex flex-1 flex-col gap-y-[2cqw] pr-[5cqw]">
-          {stats.slice(0, 3).map(([label, value]) => (
-            <div key={label} className="flex items-baseline gap-[2cqw] leading-none">
-              <span className="w-[8cqw] text-right font-black text-[4.4cqw]">{value}</span>
-              <span className="font-semibold uppercase text-white/85 text-[3.2cqw]">{label}</span>
-            </div>
-          ))}
-        </div>
-        <div className="w-px self-stretch bg-white/45" aria-hidden="true" />
-        <div className="flex flex-1 flex-col gap-y-[2cqw] pl-[5cqw]">
-          {stats.slice(3, 6).map(([label, value]) => (
-            <div key={label} className="flex items-baseline gap-[2cqw] leading-none">
-              <span className="w-[8cqw] text-right font-black text-[4.4cqw]">{value}</span>
-              <span className="font-semibold uppercase text-white/85 text-[3.2cqw]">{label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
     </article>
   );
 }
