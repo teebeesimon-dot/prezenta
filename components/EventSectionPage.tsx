@@ -3,7 +3,6 @@
 import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import AdminPlayerCards from "@/components/AdminPlayerCards";
-import AdminStageAwards from "@/components/AdminStageAwards";
 import AttendanceSection from "@/components/AttendanceSection";
 import EventDashboardShell from "@/components/EventDashboardShell";
 import MembersGroup from "@/components/MembersGroup";
@@ -111,24 +110,14 @@ export default function EventSectionPage({
         />
       )}
       {section === "teams" && (
-        <>
-          <TeamGenerator
-            eventId={event.id}
-            maxParticipants={event.maxParticipants}
-            footballFormat={event.footballFormat}
-            teams={event.teams}
-            isOwner={canManage}
-            groupId={group.groupId}
-          />
-          {canManage && (
-            <AdminStageAwards
-              groupId={group.groupId}
-              currentStageNumber={event.seriesIndex ?? 1}
-              hideCardCreation
-            />
-          )}
-          <PlayerCardSection groupId={group.groupId} view="voting" />
-        </>
+        <TeamGenerator
+          eventId={event.id}
+          maxParticipants={event.maxParticipants}
+          footballFormat={event.footballFormat}
+          teams={event.teams}
+          isOwner={canManage}
+          groupId={group.groupId}
+        />
       )}
       {section === "matches" && (
         <FootballMatchesPanel
