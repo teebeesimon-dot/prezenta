@@ -7,7 +7,7 @@ import { createFootballMatch, deleteFootballMatch, saveEvolutionSettings, saveSc
 import type { EvolutionLevel, FootballMatch, MatchPlayer, MatchPosition, PlayerProgress, ScoringKey, ScoringSettings } from "@/lib/football-system";
 
 const POSITIONS: MatchPosition[] = ["GK", "DEF", "MID", "ATT"];
-const RULES: Array<[ScoringKey, string]> = [["win","Victorie"],["loss","Înfrângere"],["goal","Gol"],["penaltyWin","Victorie penalty"],["cleanSheet","Clean sheet"],["goalConceded","Gol primit"],["winStreak","Serie 3+ victorii"]];
+const RULES: Array<[ScoringKey, string]> = [["win","Victorie"],["draw","Egal"],["loss","Înfrângere"],["goal","Gol"],["penaltyWin","Victorie penalty"],["penaltyLoss","Înfrângere penalty"],["cleanSheet","Clean sheet"],["goalConceded","Gol primit"],["winStreak","Serie 3+ victorii"]];
 
 function teamArrays(teams?: GeneratedTeams | null): ParticipantEntry[][] {
   if (!teams) return [];

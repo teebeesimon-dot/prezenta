@@ -79,7 +79,18 @@ export async function recalculateGroup(groupId: string) {
   cards.forEach((card) => { initial[card.userId] = Number(card.initialOverall ?? card.overall); if (card.isLegend) excluded.add(card.userId); });
   const result = recalculateFootballSystem(matches, initial, scoring ?? null, levels, awardBonus, excluded);
   const batch = writeBatch(db);
-  result.progress.forEach((player) => batch.set(doc(db, "playerProgress", `${groupId}_${player.userId}`), { ...player, groupId, rulesConfigured: result.configured, recalculatedAt: serverTimestamp() }));
+  result.progress.forEach((player) => {
+    batch.set(doc(db, "playerProgress", `${groupId}_${player.userId}`), { ...player, groupId, rulesConfigured: result.configured, recalculatedAt: serverTimestamp() });
+    batch.set(doc(db, "playerCards", `${groupId}_${player.userId}`), {
+      initialOverall: player.initialOverall,
+      currentOverall: player.currentOverall,
+      evolutionLevel: player.evolutionLevel,
+      evolutionBonus: player.evolutionBonus,
+      awardBonus: player.awardBonus,
+      cardType: player.evolutionLevel > 0 ? `evolution-${player.evolutionLevel}` : "standard",
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+  });
   result.stageLeaders.forEach((leaders) => batch.set(doc(db, "stageAwardCandidates", `${groupId}_${leaders.stageNumber}`), { ...leaders, groupId, needsReview: leaders.fieldPlayerIds.length !== 1 || leaders.goalkeeperIds.length !== 1, recalculatedAt: serverTimestamp() }, { merge: true }));
   await batch.commit();
   return result;

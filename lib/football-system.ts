@@ -24,7 +24,7 @@ export interface FootballMatch {
   players: MatchPlayer[];
 }
 
-export type ScoringKey = "win" | "loss" | "goal" | "penaltyWin" | "cleanSheet" | "goalConceded" | "winStreak";
+export type ScoringKey = "win" | "draw" | "loss" | "goal" | "penaltyWin" | "penaltyLoss" | "cleanSheet" | "goalConceded" | "winStreak";
 export type PositionScoring = Record<ScoringKey, number | null>;
 export type ScoringSettings = Record<MatchPosition, PositionScoring>;
 export interface EvolutionLevel { level: 1 | 2 | 3 | 4 | 5; points: number | null; overallBonus: number | null }
@@ -73,7 +73,7 @@ export interface RecalculationResult {
 }
 
 export function emptyPositionScoring(): PositionScoring {
-  return { win: null, loss: null, goal: null, penaltyWin: null, cleanSheet: null, goalConceded: null, winStreak: null };
+  return { win: null, draw: null, loss: null, goal: null, penaltyWin: null, penaltyLoss: null, cleanSheet: null, goalConceded: null, winStreak: null };
 }
 export function emptyScoringSettings(): ScoringSettings {
   return { GK: emptyPositionScoring(), DEF: emptyPositionScoring(), MID: emptyPositionScoring(), ATT: emptyPositionScoring() };
@@ -112,8 +112,10 @@ export function recalculateFootballSystem(
     const winnerIndex = winnerIndexes.length === 1 ? winnerIndexes[0] : match.penaltyWinnerIndex;
     for (const player of match.players) {
       if (excludedUserIds.has(player.userId)) continue;
-      const won = player.teamIndex === winnerIndex;
-      const lost = winnerIndex !== null && !won;
+      const decidedByPenalties = winnerIndexes.length > 1 && match.penaltyWinnerIndex !== null;
+      const draw = winnerIndexes.length > 1 && !decidedByPenalties;
+      const won = !draw && player.teamIndex === winnerIndex;
+      const lost = !draw && winnerIndex !== null && !won;
       const goalsConceded = match.scores.reduce((sum, score, index) => index === player.teamIndex ? sum : sum + score, 0);
       const cleanSheet = player.position === "GK" && goalsConceded === 0;
       const current = map.get(player.userId) ?? {
@@ -139,9 +141,10 @@ export function recalculateFootballSystem(
       let matchPoints: number | null = null;
       if (configured) {
         const rules = scoring[player.position];
-        criteria[won ? "win" : "loss"] = won ? rules.win! : rules.loss!;
+        criteria[draw ? "draw" : won ? "win" : "loss"] = draw ? rules.draw! : won ? rules.win! : rules.loss!;
         criteria.goal = player.goals * rules.goal!;
-        if (won && winnerIndexes.length > 1) criteria.penaltyWin = rules.penaltyWin!;
+        if (decidedByPenalties && won) criteria.penaltyWin = rules.penaltyWin!;
+        if (decidedByPenalties && lost) criteria.penaltyLoss = rules.penaltyLoss!;
         if (cleanSheet) criteria.cleanSheet = rules.cleanSheet!;
         if (player.position === "GK" && goalsConceded > 0) criteria.goalConceded = goalsConceded * rules.goalConceded!;
         if (won && current.currentWinStreak >= 3) criteria.winStreak = rules.winStreak!;
@@ -179,13 +182,13 @@ export function recalculateFootballSystem(
 
 export const CARD_ASSETS: Record<FootballCardType, string> = {
   standard: "/player-cards/bilka-template.png",
-  "evolution-1": "/player-cards/bilka-template.png",
-  "evolution-2": "/player-cards/bilka-template.png",
-  "evolution-3": "/player-cards/bilka-template.png",
-  "evolution-4": "/player-cards/bilka-template.png",
-  "evolution-5": "/player-cards/bilka-template.png",
-  "stage-player": "/player-cards/bilka-template.png",
-  "stage-goalkeeper": "/player-cards/bilka-template.png",
-  legend: "/player-cards/bilka-template.png",
-  toty: "/player-cards/bilka-template.png",
+  "evolution-1": "/player-cards/evolution-1.png",
+  "evolution-2": "/player-cards/evolution-2.png",
+  "evolution-3": "/player-cards/evolution-3.png",
+  "evolution-4": "/player-cards/evolution-4.png",
+  "evolution-5": "/player-cards/evolution-5.png",
+  "stage-player": "/player-cards/stage-award.png",
+  "stage-goalkeeper": "/player-cards/stage-award.png",
+  legend: "/player-cards/legend.png",
+  toty: "/player-cards/toty.png",
 };

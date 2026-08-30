@@ -41,14 +41,30 @@ export default function PlayerCard({
         ["PHY", card.physical],
       ];
 
+  const cardArtwork: Record<NonNullable<PlayerCardData["cardType"]>, string> = {
+    standard: "/player-cards/bilka-template.png",
+    "evolution-1": "/player-cards/evolution-1.png",
+    "evolution-2": "/player-cards/evolution-2.png",
+    "evolution-3": "/player-cards/evolution-3.png",
+    "evolution-4": "/player-cards/evolution-4.png",
+    "evolution-5": "/player-cards/evolution-5.png",
+    "stage-player": "/player-cards/stage-award.png",
+    "stage-goalkeeper": "/player-cards/stage-award.png",
+    legend: "/player-cards/legend.png",
+    toty: "/player-cards/toty.png",
+  };
+  const cardType = "cardType" in card ? card.cardType ?? "standard" : "standard";
+  const artwork = cardArtwork[cardType];
+  const displayedOverall = "currentOverall" in card ? card.currentOverall ?? card.overall : card.overall;
+
   if (mini) {
     return (
       <article
         className={`relative aspect-[1381/1814] shrink-0 overflow-hidden font-sans drop-shadow ${widthClass ?? "w-12"}`}
-        aria-label={`Card pentru ${playerName}, OVR ${card.overall} ${card.position}`}
+        aria-label={`Card pentru ${playerName}, OVR ${displayedOverall} ${card.position}`}
       >
         <img
-          src="/player-cards/bilka-template.png"
+          src={artwork}
           alt=""
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 h-full w-full object-contain"
@@ -70,7 +86,7 @@ export default function PlayerCard({
           )}
         </div>
         <div className="absolute left-[13%] top-[24%] z-10 text-center leading-none text-white [text-shadow:0_1px_1px_rgba(0,0,0,0.8)]">
-          <div className="text-[11px] font-black">{card.overall}</div>
+          <div className="text-[11px] font-black">{displayedOverall}</div>
           <div className="text-[6px] font-extrabold">{card.position}</div>
         </div>
       </article>
@@ -84,14 +100,14 @@ export default function PlayerCard({
       aria-label={`Card Bilka pentru ${playerName}`}
     >
       <img
-        src="/player-cards/bilka-template.png"
+        src={artwork}
         alt=""
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 h-full w-full object-contain"
       />
 
       <div className="absolute left-[13%] top-[26%] z-10 w-[13%] text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.65)]">
-        <div className="font-black leading-none text-[9cqw]">{card.overall}</div>
+        <div className="font-black leading-none text-[9cqw]">{displayedOverall}</div>
         <div className="mt-[2cqw] font-extrabold leading-none text-[3.6cqw]">{card.position}</div>
         {card.jerseyNumber !== null && card.jerseyNumber !== undefined && (
           <div className="mt-[2cqw] border-t border-white/45 pt-[1.5cqw] font-bold leading-none text-[3cqw]">#{card.jerseyNumber}</div>
