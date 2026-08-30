@@ -132,6 +132,8 @@ export default function EventWeatherPanel({
       return key >= startKey && key <= endKey;
     })
     .sort((a, b) => a.time.localeCompare(b.time));
+  // Headline = the kickoff hour only. No "current weather" fallback: for a
+  // future match we must never show today's live conditions.
   const eventWeather =
     forecast?.find((h) => h.time.slice(0, 13) === kickoffKey) ?? forecast?.[0];
   const conditions = eventWeather
@@ -144,20 +146,10 @@ export default function EventWeatherPanel({
         humidity: eventWeather.humidity,
         precipitation: eventWeather.precipitation,
       }
-    : data
-      ? {
-          temperature: data.current.temperature_2m,
-          apparentTemperature: data.current.apparent_temperature,
-          code: data.current.weather_code,
-          label: data.current.label,
-          windSpeed: data.current.wind_speed_10m,
-          humidity: data.current.relative_humidity_2m,
-          precipitation: data.current.precipitation,
-        }
-      : null;
+    : null;
 
   if (variant === "inline") {
-    if (!key || error || (!isLoading && !data)) return null;
+    if (!key || error || (!isLoading && !conditions)) return null;
     return (
       <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3">
         {isLoading || !conditions ? (
@@ -186,8 +178,10 @@ export default function EventWeatherPanel({
       </h2>
       {!key || error ? (
         <p className="mt-5 text-sm text-muted-foreground">Vreme indisponibilă pentru această locație.</p>
-      ) : isLoading || !conditions ? (
+      ) : isLoading ? (
         <p className="mt-5 text-sm text-muted-foreground">Se încarcă prognoza...</p>
+      ) : !conditions ? (
+        <p className="mt-5 text-sm text-muted-foreground">Prognoza pentru data evenimentului nu este încă disponibilă.</p>
       ) : (
         <>
           <div className="mt-4 flex items-center gap-4">

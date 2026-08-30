@@ -80,6 +80,7 @@ export default function PlayerCard({
   return (
     <article
       className={`relative aspect-[1381/1814] shrink-0 overflow-hidden font-sans text-card-foreground drop-shadow-xl ${widthClass ?? (compact ? "w-40 sm:w-44" : "w-full max-w-xs")}`}
+      style={{ containerType: "inline-size" }}
       aria-label={`Card Bilka pentru ${playerName}`}
     >
       <img
@@ -89,11 +90,11 @@ export default function PlayerCard({
         className="pointer-events-none absolute inset-0 h-full w-full object-contain"
       />
 
-      <div className="absolute left-[15%] top-[25%] z-10 text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.65)]">
-        <div className={`font-black leading-none ${compact ? "text-2xl" : "text-4xl"}`}>{card.overall}</div>
-        <div className={`mt-1 font-extrabold ${compact ? "text-[10px]" : "text-sm"}`}>{card.position}</div>
+      <div className="absolute left-[13%] top-[26%] z-10 w-[13%] text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.65)]">
+        <div className="font-black leading-none text-[9cqw]">{card.overall}</div>
+        <div className="mt-[2cqw] font-extrabold leading-none text-[3.6cqw]">{card.position}</div>
         {card.jerseyNumber !== null && card.jerseyNumber !== undefined && (
-          <div className={`mt-1 border-t border-white/45 pt-1 font-bold ${compact ? "text-[8px]" : "text-xs"}`}>#{card.jerseyNumber}</div>
+          <div className="mt-[2cqw] border-t border-white/45 pt-[1.5cqw] font-bold leading-none text-[3cqw]">#{card.jerseyNumber}</div>
         )}
       </div>
 
@@ -113,18 +114,18 @@ export default function PlayerCard({
         )}
       </div>
 
-      <div className="absolute inset-x-[15%] top-[65%] z-10 text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.75)]">
-        <div className={`truncate border-b border-white/40 pb-1 font-black uppercase tracking-tight ${compact ? "text-xs" : "text-xl"}`}>{playerName}</div>
+      <div className="absolute inset-x-[15%] top-[64%] z-10 text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.75)]">
+        <div className="truncate border-b border-white/40 pb-[1cqw] font-black uppercase leading-tight tracking-tight text-[5.5cqw]">{playerName}</div>
         {isStage && (
-          <div className={`mt-1 font-bold uppercase tracking-wider text-white/80 ${compact ? "text-[7px]" : "text-[10px]"}`}>Card special · Etapa {card.stageNumber}</div>
+          <div className="mt-[1cqw] font-bold uppercase leading-none tracking-wider text-white/80 text-[2.6cqw]">Card special · Etapa {card.stageNumber}</div>
         )}
       </div>
 
-      <div className="absolute inset-x-[20%] top-[73%] z-10 grid grid-cols-2 gap-x-[16%] gap-y-0.5 text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
+      <div className="absolute inset-x-[19%] top-[71%] z-10 grid grid-cols-2 gap-x-[14%] gap-y-[1cqw] text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.7)]">
         {stats.map(([label, value]) => (
-          <div key={label} className={`flex items-baseline gap-1 font-black ${compact ? "text-[9px]" : "text-sm"}`}>
+          <div key={label} className="flex items-baseline gap-[1.5cqw] font-black leading-none text-[4cqw]">
             <span>{value}</span>
-            <span className={`font-bold text-white/80 ${compact ? "text-[6px]" : "text-[9px]"}`}>{label}</span>
+            <span className="font-bold leading-none text-white/80 text-[2.6cqw]">{label}</span>
           </div>
         ))}
       </div>
