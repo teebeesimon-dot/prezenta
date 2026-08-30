@@ -93,11 +93,17 @@ interface EventWeatherPanelProps {
   variant?: "panel" | "inline";
 }
 
-/** Local naive-time key "YYYY-MM-DDTHH" for a date + minute offset (no timezone math). */
+/**
+ * Local naive-time key "YYYY-MM-DDTHH" for a date + minute offset, rounded to
+ * the nearest full hour (22:30 -> 23:00). No timezone math, so it matches
+ * Open-Meteo's local hourly timestamps directly.
+ */
 function hourKey(dateStr: string, timeStr: string, addMinutes = 0): string {
   const [h, m] = timeStr.split(":").map(Number);
   const base = new Date(`${dateStr}T00:00:00`);
   base.setHours(h, m + addMinutes, 0, 0);
+  if (base.getMinutes() >= 30) base.setHours(base.getHours() + 1);
+  base.setMinutes(0, 0, 0);
   const y = base.getFullYear();
   const mo = String(base.getMonth() + 1).padStart(2, "0");
   const d = String(base.getDate()).padStart(2, "0");
