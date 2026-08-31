@@ -296,7 +296,8 @@ export default function AttendanceSection({
   );
   const showsResponse = view !== "lists";
   const showsConfirmed = view !== "response";
-  const showsOtherLists = view === "all" || view === "lists";
+  const showsOtherLists =
+    view === "all" || view === "lists" || view === "response-confirmed";
   const inlineConfirmed = view === "response-confirmed";
 
   const registrationOpensAt = computeRegistrationOpensAt({
