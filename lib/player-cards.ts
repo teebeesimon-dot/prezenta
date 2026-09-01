@@ -117,6 +117,8 @@ export interface StageCard {
   groupId: string;
   stageId: string;
   stageNumber: number;
+  cardType?: "totw";
+  stagePoints?: number;
   userId: string;
   playerName: string;
   playerPhoto: string | null;
@@ -310,6 +312,53 @@ export async function upsertStageCard(stageCard: Omit<StageCard, "id" | "created
   await assertGroupOwner(stageCard.groupId, updatedBy);
   await setDoc(doc(db, "stageCards", `${stageCard.groupId}_${stageCard.stageId}_${stageCard.userId}`), { ...stageCard, activeFrom: serverTimestamp(), activeUntil: null, createdAt: serverTimestamp() }, { merge: true });
 }
+export async function updateStageCard(stageCard: StageCard, updatedBy: string): Promise<void> {
+  await assertGroupOwner(stageCard.groupId, updatedBy);
+  const attributes = stageCard.position === "GK" ? GOALKEEPER_KEYS : OUTFIELD_KEYS;
+  if (![stageCard.overall, ...attributes.map((key) => stageCard[key])].every((value) => Number.isFinite(value) && Number(value) >= 1 && Number(value) <= 99)) {
+    throw new Error("OVR-ul și toate atributele trebuie să fie între 1 și 99.");
+  }
+  await setDoc(doc(db, "stageCards", stageCard.id), {
+    ...stageCard,
+    overall: clampRating(stageCard.overall),
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  }, { merge: true });
+}
+
+export async function applyTotwBonusToPlayer(params: {
+  groupId: string;
+  stageId: string;
+  stageNumber: number;
+  userId: string;
+  updatedBy: string;
+}): Promise<PlayerCardData> {
+  await assertGroupOwner(params.groupId, params.updatedBy);
+  const historyId = `${params.groupId}_${params.stageId}_${params.userId}_totw`;
+  const historyRef = doc(db, "playerCardHistory", historyId);
+  const existingHistory = await getDoc(historyRef);
+  if (existingHistory.exists()) return hydratePlayerCard((existingHistory.data() as PlayerCardHistoryEntry).after);
+
+  const cardRef = doc(db, "playerCards", `${params.groupId}_${params.userId}`);
+  const cardSnap = await getDoc(cardRef);
+  const before = hydratePlayerCard(cardSnap.exists() ? cardSnap.data() as PlayerCardData : defaultPlayerCard(params.userId, params.groupId));
+  const after = hydratePlayerCard({
+    ...before,
+    overall: clampRating(before.overall + 1),
+    currentOverall: clampRating((before.currentOverall ?? before.overall) + 1),
+    awardBonus: (before.awardBonus ?? 0) + 1,
+    updatedBy: params.updatedBy,
+  });
+  await setDoc(cardRef, { ...after, updatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(historyRef, {
+    id: historyId, groupId: params.groupId, userId: params.userId,
+    stageId: params.stageId, stageNumber: params.stageNumber, reason: "award",
+    before, after, deltas: [{ key: "overall", amount: 1 }], awardIds: ["totw"],
+    createdAt: serverTimestamp(), createdBy: params.updatedBy,
+  });
+  return after;
+}
+
 export async function createStageVote(params: { groupId: string; stageId: string; awardId: string; voterUserId: string; candidateUserId: string }): Promise<void> {
   if (params.voterUserId === params.candidateUserId) throw new Error("Nu te poți vota pe tine.");
   await setDoc(doc(db, "stageVotes", `${params.groupId}_${params.stageId}_${params.awardId}_${params.voterUserId}`), { ...params, createdAt: serverTimestamp() }, { merge: false });

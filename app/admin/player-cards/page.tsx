@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import RequireSuperAdmin from "@/components/RequireSuperAdmin";
 import AdminPlayerCards from "@/components/AdminPlayerCards";
-import AdminStageAwards from "@/components/AdminStageAwards";
 import { useAuth } from "@/contexts/AuthProvider";
 import { getAllGroupsForAdmin, type AdminGroup } from "@/lib/members";
 
@@ -68,7 +67,6 @@ export default function AdminPlayerCardsPage() {
                     </div>
                     <div className="mt-3">
                       <AdminPlayerCards groupId={group.groupId} />
-                      <AdminStageAwards groupId={group.groupId} />
                     </div>
                   </div>
                 ))}

@@ -1,420 +1,93 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import PlayerCard from "@/components/PlayerCard";
 import { useAuth } from "@/contexts/AuthProvider";
 import { subscribeToGroupMembers, type Member } from "@/lib/members";
-import CardImageUploader from "@/components/CardImageUploader";
+import type { PlayerProgress } from "@/lib/football-system";
 import {
-  STAGE_AWARD_OPTIONS,
-  applyStageAwardsToPlayer,
-  getStageConfig,
-  getStageVotes,
+  applyTotwBonusToPlayer,
+  PLAYER_POSITIONS,
   reportPlayerCardsError,
-  saveStageConfig,
+  subscribeGroupStageCards,
+  updateStageCard,
   upsertStageCard,
-  type StageAward,
+  type PlayerPosition,
+  type StageCard,
 } from "@/lib/player-cards";
 
-interface AdminStageAwardsProps {
+const OUTFIELD = [["pace", "PAC · Viteză"], ["shooting", "SHO · Șut"], ["passing", "PAS · Pase"], ["dribbling", "DRI · Dribling"], ["defending", "DEF · Apărare"], ["physical", "PHY · Fizic"]] as const;
+const GOALKEEPER = [["diving", "DIV · Plonjon"], ["handling", "HAN · Prindere"], ["kicking", "KIC · Degajare"], ["reflexes", "REF · Reflexe"], ["speed", "SPD · Viteză"], ["positioning", "POS · Poziționare"]] as const;
+
+interface Props {
   groupId: string;
   currentStageNumber?: number;
-  allowedAwardIds?: string[];
+  progress: PlayerProgress[];
 }
 
-export default function AdminStageAwards({
-  groupId,
-  currentStageNumber = 1,
-  hideCardCreation = false,
-  allowedAwardIds,
-}: AdminStageAwardsProps & { hideCardCreation?: boolean }) {
+export default function AdminStageAwards({ groupId, currentStageNumber = 1, progress }: Props) {
   const { user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
-  const [stageNumber, setStageNumber] = useState(currentStageNumber);
-  const defaultAwards = allowedAwardIds ?? ["mvp", "top_scorer"];
-  const [selectedAwards, setSelectedAwards] = useState<string[]>(defaultAwards);
-  const [votingOpen, setVotingOpen] = useState(false);
-  const [published, setPublished] = useState(false);
+  const [stageCards, setStageCards] = useState<StageCard[]>([]);
+  const [editing, setEditing] = useState<StageCard | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const [results, setResults] = useState<Record<string, StageAward[]>>({});
-  const [specialCardUserId, setSpecialCardUserId] = useState("");
-  const [specialCardImages, setSpecialCardImages] = useState<Record<string, string>>({});
 
   useEffect(() => subscribeToGroupMembers(groupId, setMembers), [groupId]);
+  useEffect(() => subscribeGroupStageCards(groupId, setStageCards), [groupId]);
 
-  const stageId = `${groupId}_stage_${stageNumber}`;
-  const awardOptions = useMemo(
-    () => allowedAwardIds ? STAGE_AWARD_OPTIONS.filter((award) => allowedAwardIds.includes(award.id)) : STAGE_AWARD_OPTIONS,
-    [allowedAwardIds],
-  );
+  const standings = useMemo(() => progress.map((player) => {
+    const rows = player.breakdown.filter((row) => row.stageNumber === currentStageNumber);
+    return { userId: player.userId, name: player.name, matches: rows.length, points: rows.some((row) => row.points !== null) ? rows.reduce((sum, row) => sum + (row.points ?? 0), 0) : null };
+  }).filter((player) => player.matches > 0 && player.points !== null).sort((a, b) => (b.points ?? 0) - (a.points ?? 0)), [currentStageNumber, progress]);
+  const maxPoints = standings[0]?.points ?? null;
+  const winners = maxPoints === null ? [] : standings.filter((player) => player.points === maxPoints);
+  const currentCards = stageCards.filter((card) => card.stageNumber === currentStageNumber && (card.cardType === "totw" || card.awardIds.includes("totw")));
+  const stageId = `${groupId}_stage_${currentStageNumber}`;
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const config = await getStageConfig(groupId, stageNumber);
-        if (cancelled) return;
-        const configured = config?.awardIds?.length ? config.awardIds : defaultAwards;
-        setSelectedAwards(allowedAwardIds ? configured.filter((id) => allowedAwardIds.includes(id)) : configured);
-        setVotingOpen(config?.votingOpen ?? false);
-        setPublished(config?.published ?? false);
-        setResults({});
-      } catch (error) {
-        if (!cancelled) {
-          setMessage(
-            reportPlayerCardsError(
-              error,
-              "Citirea configurației etapei",
-              "stageConfigs",
-            ),
-          );
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [groupId, stageNumber]);
-
-  function toggleAward(id: string) {
-    if (votingOpen || published) return;
-    setSelectedAwards((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id],
-    );
-  }
-
-  async function openVoting() {
-    if (selectedAwards.length === 0) return;
-    setSaving(true);
-    setMessage("");
+  async function generateTotw() {
+    if (!user || winners.length === 0) return;
+    setSaving(true); setMessage("");
     try {
-      await saveStageConfig({
-        groupId,
-        stageNumber,
-        awardIds: selectedAwards,
-        votingOpen: true,
-        published: false,
-        updatedBy: user!.uid,
-      });
-      setVotingOpen(true);
-      setPublished(false);
-      setMessage(
-        "Votarea este deschisa. Participantii o vor vedea pe pagina meciului.",
-      );
-    } catch (error) {
-      setMessage(
-        reportPlayerCardsError(error, "Deschiderea votării", "stageConfigs"),
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function closeVoting() {
-    setSaving(true);
-    setMessage("");
-    try {
-      await saveStageConfig({
-        groupId,
-        stageNumber,
-        awardIds: selectedAwards,
-        votingOpen: false,
-        published: false,
-        updatedBy: user!.uid,
-      });
-      setVotingOpen(false);
-      setMessage("Votarea a fost inchisa.");
-    } catch (error) {
-      setMessage(
-        reportPlayerCardsError(error, "Închiderea votării", "stageConfigs"),
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function loadResults() {
-    setMessage("");
-    try {
-      const stageVotes = await getStageVotes(groupId, stageId);
-      const grouped: Record<string, StageAward[]> = {};
-      for (const awardId of selectedAwards) {
-        const award = awardOptions.find((item) => item.id === awardId);
-        if (!award) continue;
-        const byCandidate = new Map<string, number>();
-        stageVotes
-          .filter((vote) => vote.awardId === awardId)
-          .forEach((vote) => {
-            byCandidate.set(
-              vote.candidateUserId,
-              (byCandidate.get(vote.candidateUserId) ?? 0) + 1,
-            );
-          });
-        grouped[awardId] = Array.from(byCandidate.entries())
-          .map(([candidateUserId, count]) => {
-            const member = members.find(
-              (item) => item.userId === candidateUserId,
-            );
-            return {
-              awardId,
-              label: award.label,
-              winnerUserId: candidateUserId,
-              winnerName: member?.userName ?? "Jucator",
-              winnerPhoto: member?.userPhoto ?? null,
-              votes: count,
-            };
-          })
-          .sort((a, b) => b.votes - a.votes);
-      }
-      setResults(grouped);
-    } catch (error) {
-      setMessage(
-        reportPlayerCardsError(error, "Citirea rezultatelor", "stageVotes"),
-      );
-    }
-  }
-
-  async function publishStageCards() {
-    if (!user || votingOpen || selectedAwards.length === 0) return;
-    setSaving(true);
-    setMessage("");
-    try {
-      const stageVotes = await getStageVotes(groupId, stageId);
-      const winnersByUser = new Map<string, StageAward[]>();
-
-      for (const awardId of selectedAwards) {
-        const award = awardOptions.find((item) => item.id === awardId);
-        if (!award) continue;
-        const counts = new Map<string, number>();
-        stageVotes
-          .filter((vote) => vote.awardId === awardId)
-          .forEach((vote) => {
-            counts.set(
-              vote.candidateUserId,
-              (counts.get(vote.candidateUserId) ?? 0) + 1,
-            );
-          });
-        const sorted = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-        const winner = sorted[0];
-        if (!winner) continue;
-        const member = members.find((item) => item.userId === winner[0]);
-        const awardResult: StageAward = {
-          awardId,
-          label: award.label,
-          winnerUserId: winner[0],
-          winnerName: member?.userName ?? "Jucator",
-          winnerPhoto: member?.userPhoto ?? null,
-          votes: winner[1],
-        };
-        winnersByUser.set(winner[0], [
-          ...(winnersByUser.get(winner[0]) ?? []),
-          awardResult,
-        ]);
-      }
-
-      for (const [winnerUserId, awards] of winnersByUser) {
-        const progressedCard = await applyStageAwardsToPlayer({
-          groupId,
-          stageId,
-          stageNumber,
-          userId: winnerUserId,
-          awardIds: awards.map((award) => award.awardId),
-          updatedBy: user.uid,
-        });
+      for (const winner of winners) {
+        const permanent = await applyTotwBonusToPlayer({ groupId, stageId, stageNumber: currentStageNumber, userId: winner.userId, updatedBy: user.uid });
+        const member = members.find((item) => item.userId === winner.userId);
         await upsertStageCard({
-          groupId,
-          stageId,
-          stageNumber,
-          userId: winnerUserId,
-          playerName: awards[0].winnerName,
-          playerPhoto: awards[0].winnerPhoto,
-          cardImageUrl: specialCardImages[winnerUserId] ?? progressedCard.cardImageUrl ?? null,
-          overall: progressedCard.overall,
-          position: progressedCard.position,
-          pace: progressedCard.pace,
-          shooting: progressedCard.shooting,
-          passing: progressedCard.passing,
-          dribbling: progressedCard.dribbling,
-          defending: progressedCard.defending,
-          physical: progressedCard.physical,
-          diving: progressedCard.diving,
-          handling: progressedCard.handling,
-          kicking: progressedCard.kicking,
-          reflexes: progressedCard.reflexes,
-          speed: progressedCard.speed,
-          positioning: progressedCard.positioning,
-          jerseyNumber: progressedCard.jerseyNumber ?? null,
-          awardIds: awards.map((award) => award.awardId),
-          awards,
+          groupId, stageId, stageNumber: currentStageNumber, cardType: "totw", stagePoints: winner.points ?? 0,
+          userId: winner.userId, playerName: winner.name, playerPhoto: member?.userPhoto ?? permanent.playerPhoto ?? null,
+          cardImageUrl: permanent.cardImageUrl ?? null, overall: permanent.overall, position: permanent.position,
+          pace: permanent.pace, shooting: permanent.shooting, passing: permanent.passing, dribbling: permanent.dribbling,
+          defending: permanent.defending, physical: permanent.physical, diving: permanent.diving, handling: permanent.handling,
+          kicking: permanent.kicking, reflexes: permanent.reflexes, speed: permanent.speed, positioning: permanent.positioning,
+          jerseyNumber: permanent.jerseyNumber ?? null, awardIds: ["totw"],
+          awards: [{ awardId: "totw", label: "TOTW", winnerUserId: winner.userId, winnerName: winner.name, winnerPhoto: member?.userPhoto ?? null, votes: 0 }],
         }, user.uid);
       }
-
-      await saveStageConfig({
-        groupId,
-        stageNumber,
-        awardIds: selectedAwards,
-        votingOpen: false,
-        published: true,
-        updatedBy: user.uid,
-      });
-      setPublished(true);
-      setVotingOpen(false);
-      await loadResults();
-      setMessage(
-        "Rezultatele au fost publicate si cardurile etapei au fost create.",
-      );
-    } catch (error) {
-      setMessage(
-        reportPlayerCardsError(
-          error,
-          "Publicarea premiilor",
-          "stageCards / stageConfigs",
-        ),
-      );
-    } finally {
-      setSaving(false);
-    }
+      setMessage(winners.length === 1 ? "Cardul TOTW a fost generat. Bonusul +1 OVR a fost aplicat." : `Au fost generate ${winners.length} carduri TOTW pentru liderii la egalitate.`);
+    } catch (error) { setMessage(reportPlayerCardsError(error, "Generarea cardului TOTW", "stageCards / playerCards")); }
+    finally { setSaving(false); }
   }
 
-  return (
-    <section className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <h3 className="text-lg font-bold text-foreground">Premiile etapei</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Selecteaza ce se voteaza. Votarea se face de participanti pe pagina
-        meciului, nu din panoul de administrare.
-      </p>
+  async function saveEdit() {
+    if (!editing || !user) return;
+    setSaving(true); setMessage("");
+    try { await updateStageCard(editing, user.uid); setEditing(null); setMessage("Cardul TOTW a fost actualizat."); }
+    catch (error) { setMessage(reportPlayerCardsError(error, "Editarea cardului TOTW", "stageCards")); }
+    finally { setSaving(false); }
+  }
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <label className="text-sm font-medium text-foreground">
-          Numar etapa
-          <input
-            type="number"
-            min={1}
-            value={stageNumber}
-            disabled={votingOpen || published}
-            onChange={(event) =>
-              setStageNumber(Number(event.target.value) || 1)
-            }
-            className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 disabled:opacity-60"
-          />
-        </label>
-        <div>
-          <span className="text-sm font-medium text-foreground">Premii</span>
-          <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
-            {awardOptions.map((award) => (
-              <label
-                key={award.id}
-                className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedAwards.includes(award.id)}
-                  disabled={votingOpen || published}
-                  onChange={() => toggleAward(award.id)}
-                />
-                {award.label}
-              </label>
-            ))}
-          </div>
-        </div>
-      </div>
+  return <section className="event-panel p-5 sm:p-6">
+    <p className="text-sm font-semibold text-primary">Team of the Week</p>
+    <h3 className="mt-1 text-xl font-extrabold text-foreground">TOTW · Etapa {currentStageNumber}</h3>
+    <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Cardul se acordă automat jucătorului cu cel mai mare punctaj din această etapă. La egalitate, toți liderii primesc TOTW și +1 OVR.</p>
 
-      {!published && (
-        <div className="mt-5 rounded-xl border border-border bg-background p-4">
-          <h4 className="font-bold text-foreground">Imagine card special</h4>
-          <p className="mt-1 text-sm text-muted-foreground">Încarcă opțional imaginea specială pentru un posibil câștigător. Va fi asociată cardului etapei doar dacă jucătorul câștigă.</p>
-          <label className="mt-3 block text-sm font-medium text-foreground">
-            Jucător
-            <select value={specialCardUserId} onChange={(event) => setSpecialCardUserId(event.target.value)} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5">
-              <option value="">Alege jucătorul</option>
-              {members.map((member) => <option key={member.userId} value={member.userId}>{member.userName}</option>)}
-            </select>
-          </label>
-          {specialCardUserId && (
-            <div className="mt-3">
-              <CardImageUploader groupId={groupId} userId={specialCardUserId} variant="special" onUploaded={(pathname) => setSpecialCardImages((current) => ({ ...current, [specialCardUserId]: pathname }))} />
-              {specialCardImages[specialCardUserId] && <p className="mt-2 text-xs font-semibold text-primary">Imagine pregătită pentru acest jucător și etapa {stageNumber}.</p>}
-            </div>
-          )}
-        </div>
-      )}
+    <div className="mt-5 overflow-x-auto rounded-xl border border-border"><table className="w-full text-sm"><thead className="bg-muted text-left text-muted-foreground"><tr><th className="p-3">Jucător</th><th className="p-3">Meciuri</th><th className="p-3">Punctaj etapă</th></tr></thead><tbody>{standings.map((player) => <tr key={player.userId} className="border-t border-border"><td className="p-3 font-semibold">{player.name}{player.points === maxPoints && <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">Lider</span>}</td><td className="p-3">{player.matches}</td><td className="p-3 font-bold">{player.points}</td></tr>)}</tbody></table>{standings.length === 0 && <p className="p-4 text-sm text-muted-foreground">Configurează punctajele și salvează meciurile etapei pentru a determina liderul.</p>}</div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        {!votingOpen && !published && (
-          <button
-            type="button"
-            onClick={openVoting}
-            disabled={saving || selectedAwards.length === 0}
-            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50"
-          >
-            Deschide votarea
-          </button>
-        )}
-        {votingOpen && (
-          <button
-            type="button"
-            onClick={closeVoting}
-            disabled={saving}
-            className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground disabled:opacity-50"
-          >
-            Inchide votarea
-          </button>
-        )}
-        {!votingOpen && (
-          <button
-            type="button"
-            onClick={loadResults}
-            className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground"
-          >
-            Vezi rezultate
-          </button>
-        )}
-        {!hideCardCreation && !votingOpen && !published && (
-          <button
-            type="button"
-            onClick={publishStageCards}
-            disabled={saving}
-            className="rounded-xl border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm font-bold text-primary disabled:opacity-50"
-          >
-            Publică premiile și cardurile
-          </button>
-        )}
-      </div>
+    {winners.length > 0 && <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/10 p-4"><div><p className="font-bold text-foreground">{winners.map((winner) => winner.name).join(", ")}</p><p className="text-sm text-muted-foreground">{maxPoints} puncte · {winners.length === 1 ? "câștigător TOTW" : "câștigători la egalitate"}</p></div><button type="button" onClick={generateTotw} disabled={saving} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">{currentCards.length ? "Regenerează cardurile TOTW" : "Generează cardurile TOTW"}</button></div>}
+    {message && <p role="status" className="mt-4 text-sm text-muted-foreground">{message}</p>}
 
-      {published && (
-        <p className="mt-4 text-sm font-semibold text-primary">
-          Etapa este publicata. Cardurile raman in history dupa trecerea la
-          etapa urmatoare.
-        </p>
-      )}
-      {message && (
-        <p className="mt-4 text-sm text-muted-foreground">{message}</p>
-      )}
+    {currentCards.length > 0 && <div className="mt-6"><h4 className="text-lg font-bold text-foreground">Carduri TOTW generate</h4><div className="mt-4 grid gap-5 lg:grid-cols-2">{currentCards.map((card) => <div key={card.id} className="rounded-2xl border border-border bg-background p-4"><div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start"><PlayerCard card={card} compact /><div className="flex-1"><p className="font-bold text-foreground">{card.playerName}</p><p className="text-sm text-muted-foreground">{card.stagePoints ?? "—"} puncte · OVR {card.overall}</p><button type="button" onClick={() => setEditing({ ...card })} className="mt-3 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-foreground">Editează manual cardul</button></div></div></div>)}</div></div>}
 
-      {Object.keys(results).length > 0 && (
-        <div className="mt-5 space-y-4">
-          {Object.entries(results).map(([awardId, entries]) => (
-            <div key={awardId} className="rounded-xl border border-border p-4">
-              <div className="font-bold text-foreground">
-                {awardOptions.find((item) => item.id === awardId)?.label}
-              </div>
-              <div className="mt-2 space-y-1 text-sm">
-                {entries.map((entry) => (
-                  <div
-                    key={entry.winnerUserId}
-                    className="flex items-center justify-between"
-                  >
-                    <span>{entry.winnerName}</span>
-                    <span className="font-bold">{entry.votes}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
+    {editing && <div className="mt-6 rounded-2xl border border-border bg-background p-5"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-primary">Editare manuală</p><h4 className="text-lg font-bold text-foreground">{editing.playerName}</h4></div><button type="button" onClick={() => setEditing(null)} className="text-sm font-semibold text-muted-foreground">Închide</button></div><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="text-sm font-semibold">OVR<input type="number" min={1} max={99} value={editing.overall} onChange={(event) => setEditing({ ...editing, overall: Number(event.target.value) })} className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-2.5" /></label><label className="text-sm font-semibold">Poziție<select value={editing.position} onChange={(event) => setEditing({ ...editing, position: event.target.value as PlayerPosition })} className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-2.5">{PLAYER_POSITIONS.map((position) => <option key={position.value} value={position.value}>{position.label}</option>)}</select></label></div><fieldset className="mt-4 grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-3"><legend className="px-2 text-sm font-bold">Atribute</legend>{(editing.position === "GK" ? GOALKEEPER : OUTFIELD).map(([key, label]) => <label key={key} className="text-sm font-semibold">{label}<input type="number" min={1} max={99} value={editing[key]} onChange={(event) => setEditing({ ...editing, [key]: Number(event.target.value) })} className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-2.5" /></label>)}</fieldset><div className="mt-4 flex justify-end"><button type="button" onClick={saveEdit} disabled={saving} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-50">Salvează cardul TOTW</button></div></div>}
+  </section>;
 }
