@@ -12,7 +12,13 @@ function mapMatch(id: string, data: Record<string, unknown>): FootballMatch {
     id, groupId: String(data.groupId ?? ""), eventId: String(data.eventId ?? ""),
     stageNumber: Number(data.stageNumber ?? 1), matchOrder: Number(data.matchOrder ?? 1),
     playedAt: typeof data.playedAt === "number" ? data.playedAt : Date.now(),
-    teamNames: Array.isArray(data.teamNames) ? data.teamNames.map(String) : ["Echipa 1", "Echipa 2"],
+    teamNames: Array.isArray(data.teamNames) ? data.teamNames.map(String) : ["Echipa A (Verde)", "Echipa B (Portocaliu)"],
+    teamIndexes: Array.isArray(data.teamIndexes)
+      ? data.teamIndexes.map(Number)
+      : Array.from({ length: Array.isArray(data.teamNames) ? data.teamNames.length : 2 }, (_, index) => index),
+    ownGoals: Array.isArray(data.ownGoals)
+      ? data.ownGoals.map((value) => Math.max(0, Number(value) || 0))
+      : Array.from({ length: Array.isArray(data.teamNames) ? data.teamNames.length : 2 }, () => 0),
     scores: Array.isArray(data.scores) ? data.scores.map(Number) : [0, 0],
     penaltyWinnerIndex: typeof data.penaltyWinnerIndex === "number" ? data.penaltyWinnerIndex : null,
     players: Array.isArray(data.players) ? data.players.map((p: Record<string, unknown>) => ({ userId: String(p.userId), name: String(p.name), teamIndex: Number(p.teamIndex), position: String(p.position ?? "MID") as FootballMatch["players"][number]["position"], goals: Number(p.goals ?? 0) })) : [],
@@ -41,6 +47,13 @@ export async function saveEvolutionSettings(groupId: string, levels: EvolutionLe
 }
 export async function createFootballMatch(input: Omit<FootballMatch, "id">, actorId: string) {
   const validated = validateFootballMatchWinner(input);
+  const existing = await getDocs(query(collection(db, "footballMatches"), where("groupId", "==", validated.groupId)));
+  if (existing.docs.some((item) => {
+    const data = item.data();
+    return Number(data.stageNumber) === validated.stageNumber && Number(data.matchOrder) === validated.matchOrder;
+  })) {
+    throw new Error(`Meciul ${validated.matchOrder} există deja în etapa ${validated.stageNumber}.`);
+  }
   const ref = await addDoc(collection(db, "footballMatches"), { ...validated, actorId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   await recalculateGroup(validated.groupId);
   return ref.id;

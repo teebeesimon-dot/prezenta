@@ -19,6 +19,8 @@ export interface FootballMatch {
   matchOrder: number;
   playedAt: number;
   teamNames: string[];
+  teamIndexes: number[];
+  ownGoals: number[];
   scores: number[];
   penaltyWinnerIndex: number | null;
   players: MatchPlayer[];
@@ -74,16 +76,31 @@ export interface RecalculationResult {
   stageLeaders: Array<{ stageNumber: number; fieldPlayerIds: string[]; goalkeeperIds: string[] }>;
 }
 
+export function calculateMatchScores(players: MatchPlayer[], ownGoals: number[], teamCount = 2): number[] {
+  return Array.from({ length: teamCount }, (_, teamIndex) =>
+    players
+      .filter((player) => player.teamIndex === teamIndex)
+      .reduce((sum, player) => sum + Math.max(0, Math.trunc(Number(player.goals) || 0)), 0) +
+    Math.max(0, Math.trunc(Number(ownGoals[teamIndex]) || 0)),
+  );
+}
+
 export function validateFootballMatchWinner<T extends Omit<FootballMatch, "id"> | FootballMatch>(match: T): T {
-  if (match.scores.length < 2 || match.scores.some((score) => !Number.isFinite(score) || score < 0)) {
-    throw new Error("Scorurile meciului nu sunt valide.");
+  if (match.teamNames.length !== 2 || match.teamIndexes.length !== 2 || new Set(match.teamIndexes).size !== 2) {
+    throw new Error("Selectează exact două echipe diferite.");
   }
-  const maxScore = Math.max(...match.scores);
-  const winnerIndexes = match.scores.map((score, index) => score === maxScore ? index : -1).filter((index) => index >= 0);
-  if (winnerIndexes.length > 1 && (match.penaltyWinnerIndex === null || !winnerIndexes.includes(match.penaltyWinnerIndex))) {
+  if (match.matchOrder < 1 || !Number.isInteger(match.matchOrder)) {
+    throw new Error("Numărul meciului trebuie să fie un număr întreg pozitiv.");
+  }
+  if (match.players.some((player) => !Number.isInteger(player.goals) || player.goals < 0) || match.ownGoals.some((value) => !Number.isInteger(value) || value < 0)) {
+    throw new Error("Golurile și autogolurile trebuie să fie numere întregi pozitive sau zero.");
+  }
+  const scores = calculateMatchScores(match.players, match.ownGoals, 2);
+  const tied = scores[0] === scores[1];
+  if (tied && (match.penaltyWinnerIndex === null || ![0, 1].includes(match.penaltyWinnerIndex))) {
     throw new Error("Selectează obligatoriu echipa care a câștigat la penalty.");
   }
-  return { ...match, penaltyWinnerIndex: winnerIndexes.length > 1 ? match.penaltyWinnerIndex : null };
+  return { ...match, scores, penaltyWinnerIndex: tied ? match.penaltyWinnerIndex : null };
 }
 
 export function emptyPositionScoring(): PositionScoring {

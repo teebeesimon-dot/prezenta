@@ -27,6 +27,10 @@ function isRating(value: number): boolean {
   return Number.isFinite(value) && value >= 1 && value <= 99;
 }
 
+function editableRating(value: number): number | "" {
+  return value === 0 ? "" : value;
+}
+
 export default function AdminPlayerCards({ groupId }: { groupId: string }) {
   const { user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
@@ -79,14 +83,14 @@ export default function AdminPlayerCards({ groupId }: { groupId: string }) {
 
       {form && (
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-medium text-foreground">OVR inițial<input type="number" min={1} max={99} value={form.overall} onChange={(event) => setForm({ ...form, overall: Number(event.target.value), initialOverall: Number(event.target.value) })} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5" /></label>
+          <label className="text-sm font-medium text-foreground">OVR inițial<input type="number" min={1} max={99} placeholder="0" value={editableRating(form.overall)} onChange={(event) => setForm({ ...form, overall: event.target.value === "" ? 0 : Number(event.target.value), initialOverall: event.target.value === "" ? 0 : Number(event.target.value) })} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5" /></label>
           <label className="text-sm font-medium text-foreground">Tip card<select value={form.cardType === "legend" || form.isLegend ? "legend" : "standard"} onChange={(event) => { const legend = event.target.value === "legend"; setForm({ ...form, cardType: legend ? "legend" : "standard", isLegend: legend }); }} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5"><option value="standard">Standard</option><option value="legend">Legend</option></select></label>
           <label className="text-sm font-medium text-foreground sm:col-span-2">Poziție principală<select value={form.position} onChange={(event) => setForm({ ...form, position: event.target.value as PlayerPosition })} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5">{PLAYER_POSITIONS.map((position) => <option key={position.value} value={position.value}>{position.label}</option>)}</select></label>
 
           <fieldset className="grid gap-3 rounded-xl border border-border bg-background p-4 sm:col-span-2 sm:grid-cols-3">
             <legend className="px-2 text-sm font-bold text-foreground">Atribute {form.position === "GK" ? "portar" : "jucător"}</legend>
             {visibleAttributes.map(([key, label]) => (
-              <label key={key} className="text-sm font-medium text-foreground">{label}<input type="number" min={1} max={99} value={form[key]} onChange={(event) => setForm({ ...form, [key]: Number(event.target.value) })} className="mt-1.5 w-full rounded-xl border border-border bg-card px-3 py-2.5 tabular-nums" /></label>
+              <label key={key} className="text-sm font-medium text-foreground">{label}<input type="number" min={1} max={99} placeholder="0" value={editableRating(form[key])} onChange={(event) => setForm({ ...form, [key]: event.target.value === "" ? 0 : Number(event.target.value) })} className="mt-1.5 w-full rounded-xl border border-border bg-card px-3 py-2.5 tabular-nums" /></label>
             ))}
           </fieldset>
 
