@@ -377,6 +377,18 @@ export async function applyStageAwardsToPlayer(params: {
   return after;
 }
 
+export function subscribeGroupStageCards(groupId: string, callback: (cards: StageCard[]) => void) {
+  return onSnapshot(query(collection(db, "stageCards"), where("groupId", "==", groupId)), (snapshot) =>
+    callback(snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() } as StageCard))),
+  );
+}
+
+export function subscribeGroupCardHistory(groupId: string, callback: (history: PlayerCardHistoryEntry[]) => void) {
+  return onSnapshot(query(collection(db, "playerCardHistory"), where("groupId", "==", groupId)), (snapshot) =>
+    callback(snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() } as PlayerCardHistoryEntry))),
+  );
+}
+
 export async function getPlayerCardHistory(groupId: string, userId: string): Promise<PlayerCardHistoryEntry[]> {
   const snap = await getDocs(query(
     collection(db, "playerCardHistory"),

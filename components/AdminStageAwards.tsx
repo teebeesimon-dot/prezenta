@@ -18,20 +18,20 @@ import {
 interface AdminStageAwardsProps {
   groupId: string;
   currentStageNumber?: number;
+  allowedAwardIds?: string[];
 }
 
 export default function AdminStageAwards({
   groupId,
   currentStageNumber = 1,
   hideCardCreation = false,
+  allowedAwardIds,
 }: AdminStageAwardsProps & { hideCardCreation?: boolean }) {
   const { user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [stageNumber, setStageNumber] = useState(currentStageNumber);
-  const [selectedAwards, setSelectedAwards] = useState<string[]>([
-    "mvp",
-    "top_scorer",
-  ]);
+  const defaultAwards = allowedAwardIds ?? ["mvp", "top_scorer"];
+  const [selectedAwards, setSelectedAwards] = useState<string[]>(defaultAwards);
   const [votingOpen, setVotingOpen] = useState(false);
   const [published, setPublished] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -43,7 +43,10 @@ export default function AdminStageAwards({
   useEffect(() => subscribeToGroupMembers(groupId, setMembers), [groupId]);
 
   const stageId = `${groupId}_stage_${stageNumber}`;
-  const awardOptions = useMemo(() => STAGE_AWARD_OPTIONS, []);
+  const awardOptions = useMemo(
+    () => allowedAwardIds ? STAGE_AWARD_OPTIONS.filter((award) => allowedAwardIds.includes(award.id)) : STAGE_AWARD_OPTIONS,
+    [allowedAwardIds],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -51,9 +54,8 @@ export default function AdminStageAwards({
       try {
         const config = await getStageConfig(groupId, stageNumber);
         if (cancelled) return;
-        setSelectedAwards(
-          config?.awardIds?.length ? config.awardIds : ["mvp", "top_scorer"],
-        );
+        const configured = config?.awardIds?.length ? config.awardIds : defaultAwards;
+        setSelectedAwards(allowedAwardIds ? configured.filter((id) => allowedAwardIds.includes(id)) : configured);
         setVotingOpen(config?.votingOpen ?? false);
         setPublished(config?.published ?? false);
         setResults({});

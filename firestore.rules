@@ -263,6 +263,14 @@ match /stageCards/{cardId} {
       allow update, delete: if isGroupOwner(resource.data.groupId) || isSuperAdmin();
     }
 
+    match /stageTeamConfigs/{configId} {
+      allow get, list: if isAuthenticated();
+      allow create, update: if (isGroupOwner(request.resource.data.groupId) || isSuperAdmin())
+        && configId == request.resource.data.groupId + '_' + request.resource.data.stageNumber
+        && request.resource.data.keys().hasAll(['groupId', 'stageNumber', 'colors', 'actorId', 'updatedAt']);
+      allow delete: if isGroupOwner(resource.data.groupId) || isSuperAdmin();
+    }
+
     match /scoringSettings/{settingId} {
       allow get, list: if isAuthenticated();
       allow create, update: if (isGroupOwner(request.resource.data.groupId) || isSuperAdmin())

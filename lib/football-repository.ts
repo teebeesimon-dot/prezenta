@@ -6,6 +6,20 @@ import { subscribePlayerCards } from "@/lib/player-cards";
 import { emptyScoringSettings, recalculateFootballSystem, validateFootballMatchWinner, type EvolutionLevel, type FootballMatch, type PlayerProgress, type ScoringSettings } from "@/lib/football-system";
 
 const DEFAULT_EVOLUTION: EvolutionLevel[] = [1, 2, 3, 4, 5].map((level) => ({ level: level as 1|2|3|4|5, points: null, overallBonus: null }));
+export type TeamColor = "Verde" | "Portocaliu" | "Negru";
+export const DEFAULT_TEAM_COLORS: TeamColor[] = ["Verde", "Portocaliu", "Negru"];
+
+export function subscribeStageTeamColors(groupId: string, stageNumber: number, callback: (colors: TeamColor[]) => void) {
+  return onSnapshot(doc(db, "stageTeamConfigs", `${groupId}_${stageNumber}`), (snapshot) => {
+    const colors = snapshot.data()?.colors;
+    callback(Array.isArray(colors) && colors.length === 3 ? colors as TeamColor[] : DEFAULT_TEAM_COLORS);
+  });
+}
+
+export async function saveStageTeamColors(groupId: string, stageNumber: number, colors: TeamColor[], actorId: string) {
+  if (colors.length !== 3 || new Set(colors).size !== 3) throw new Error("Fiecare culoare poate fi atribuită unei singure echipe.");
+  await setDoc(doc(db, "stageTeamConfigs", `${groupId}_${stageNumber}`), { groupId, stageNumber, colors, actorId, updatedAt: serverTimestamp() }, { merge: true });
+}
 
 function mapMatch(id: string, data: Record<string, unknown>): FootballMatch {
   return {
