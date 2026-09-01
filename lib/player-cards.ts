@@ -318,8 +318,9 @@ export async function updateStageCard(stageCard: StageCard, updatedBy: string): 
   if (![stageCard.overall, ...attributes.map((key) => stageCard[key])].every((value) => Number.isFinite(value) && Number(value) >= 1 && Number(value) <= 99)) {
     throw new Error("OVR-ul și toate atributele trebuie să fie între 1 și 99.");
   }
-  await setDoc(doc(db, "stageCards", stageCard.id), {
-    ...stageCard,
+  const { id, ...stageCardData } = stageCard;
+  await setDoc(doc(db, "stageCards", id), {
+    ...stageCardData,
     overall: clampRating(stageCard.overall),
     updatedAt: serverTimestamp(),
     updatedBy,
@@ -331,13 +332,17 @@ export async function applyTotwBonusToPlayer(params: {
   stageId: string;
   stageNumber: number;
   userId: string;
+  awardId?: "totw" | "totw_goalkeeper";
   updatedBy: string;
 }): Promise<PlayerCardData> {
   await assertGroupOwner(params.groupId, params.updatedBy);
-  const historyId = `${params.groupId}_${params.stageId}_${params.userId}_totw`;
+  const awardId = params.awardId ?? "totw";
+  const historyId = `${params.groupId}_${params.stageId}_${params.userId}_${awardId}`;
   const historyRef = doc(db, "playerCardHistory", historyId);
-  const existingHistory = await getDoc(historyRef);
-  if (existingHistory.exists()) return hydratePlayerCard((existingHistory.data() as PlayerCardHistoryEntry).after);
+  const possibleHistoryIds = ["totw", "totw_goalkeeper"].map((id) => doc(db, "playerCardHistory", `${params.groupId}_${params.stageId}_${params.userId}_${id}`));
+  const existingHistories = await Promise.all(possibleHistoryIds.map((ref) => getDoc(ref)));
+  const existingHistory = existingHistories.find((snapshot) => snapshot.exists());
+  if (existingHistory?.exists()) return hydratePlayerCard((existingHistory.data() as PlayerCardHistoryEntry).after);
 
   const cardRef = doc(db, "playerCards", `${params.groupId}_${params.userId}`);
   const cardSnap = await getDoc(cardRef);
@@ -353,7 +358,7 @@ export async function applyTotwBonusToPlayer(params: {
   await setDoc(historyRef, {
     id: historyId, groupId: params.groupId, userId: params.userId,
     stageId: params.stageId, stageNumber: params.stageNumber, reason: "award",
-    before, after, deltas: [{ key: "overall", amount: 1 }], awardIds: ["totw"],
+    before, after, deltas: [{ key: "overall", amount: 1 }], awardIds: [awardId],
     createdAt: serverTimestamp(), createdBy: params.updatedBy,
   });
   return after;

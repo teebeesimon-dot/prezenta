@@ -61,6 +61,8 @@ export interface PlayerProgress {
   currentWinStreak: number;
   longestWinStreak: number;
   points: number | null;
+  outfieldPoints: number | null;
+  goalkeeperPoints: number | null;
   evolutionLevel: number;
   evolutionBonus: number;
   awardBonus: number;
@@ -156,7 +158,10 @@ export function recalculateFootballSystem(
       const current = map.get(player.userId) ?? {
         userId: player.userId, name: player.name, matches: 0, wins: 0, losses: 0, penaltyWins: 0, penaltyLosses: 0,
         goals: 0, goalsConceded: 0, cleanSheets: 0, currentWinStreak: 0, longestWinStreak: 0,
-        points: configured ? 0 : null, evolutionLevel: 0, evolutionBonus: 0,
+        points: configured ? 0 : null,
+        outfieldPoints: configured ? 0 : null,
+        goalkeeperPoints: configured ? 0 : null,
+        evolutionLevel: 0, evolutionBonus: 0,
         awardBonus: awardBonusByUser[player.userId] ?? 0,
         initialOverall: initialOverallByUser[player.userId] ?? 50,
         currentOverall: initialOverallByUser[player.userId] ?? 50,
@@ -188,6 +193,8 @@ export function recalculateFootballSystem(
         if (won && current.currentWinStreak >= 3) criteria.winStreak = rules.winStreak!;
         matchPoints = Object.values(criteria).reduce((sum, value) => sum + (value ?? 0), 0);
         current.points = (current.points ?? 0) + matchPoints;
+        if (player.position === "GK") current.goalkeeperPoints = (current.goalkeeperPoints ?? 0) + matchPoints;
+        else current.outfieldPoints = (current.outfieldPoints ?? 0) + matchPoints;
       }
       current.breakdown.push({ matchId: match.id, stageNumber: match.stageNumber, position: player.position, won, lost, penaltyWin: won && decidedByPenalties, penaltyLoss: lost && decidedByPenalties, goals: player.goals, goalsConceded, cleanSheet, winStreak: current.currentWinStreak, points: matchPoints, criteria });
       map.set(player.userId, current);
@@ -203,17 +210,18 @@ export function recalculateFootballSystem(
 
   const stages = [...new Set(sorted.map((match) => match.stageNumber))];
   const stageLeaders = stages.map((stageNumber) => {
-    const stageScores = [...map.values()].map((player) => ({
-      userId: player.userId,
-      gk: player.breakdown.some((b) => b.stageNumber === stageNumber && b.position === "GK"),
-      points: player.breakdown.filter((b) => b.stageNumber === stageNumber).reduce((sum, b) => sum + (b.points ?? 0), 0),
-    }));
-    const leaders = (gk: boolean) => {
-      const candidates = stageScores.filter((item) => item.gk === gk);
+    const roleScores = (position: "goalkeeper" | "outfield") => [...map.values()].flatMap((player) => {
+      const rows = player.breakdown.filter((row) => row.stageNumber === stageNumber && (position === "goalkeeper" ? row.position === "GK" : row.position !== "GK"));
+      return rows.length ? [{ userId: player.userId, points: rows.reduce((sum, row) => sum + (row.points ?? 0), 0) }] : [];
+    });
+    const leaders = (scores: Array<{ userId: string; points: number }>, excluded = new Set<string>()) => {
+      const candidates = scores.filter((item) => !excluded.has(item.userId));
       const top = Math.max(...candidates.map((item) => item.points), -Infinity);
       return Number.isFinite(top) ? candidates.filter((item) => item.points === top).map((item) => item.userId) : [];
     };
-    return { stageNumber, fieldPlayerIds: configured ? leaders(false) : [], goalkeeperIds: configured ? leaders(true) : [] };
+    const fieldPlayerIds = configured ? leaders(roleScores("outfield")) : [];
+    const goalkeeperIds = configured ? leaders(roleScores("goalkeeper"), new Set(fieldPlayerIds)) : [];
+    return { stageNumber, fieldPlayerIds, goalkeeperIds };
   });
   return { configured, progress: [...map.values()].sort((a, b) => (b.points ?? -Infinity) - (a.points ?? -Infinity) || b.goals - a.goals), stageLeaders };
 }

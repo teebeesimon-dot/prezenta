@@ -224,8 +224,9 @@ match /stageCards/{cardId} {
     ]) && request.resource.data.keys().hasOnly([
       'groupId', 'stageId', 'stageNumber', 'userId', 'playerName', 'playerPhoto',
       'cardImageUrl', 'overall', 'position', 'pace', 'shooting', 'passing', 'dribbling',
-      'defending', 'physical', 'jerseyNumber', 'awardIds', 'awards',
-      'activeFrom', 'activeUntil', 'createdAt'
+      'defending', 'physical', 'diving', 'handling', 'kicking', 'reflexes', 'speed', 'positioning',
+      'jerseyNumber', 'awardIds', 'awards', 'cardType', 'stagePoints',
+      'activeFrom', 'activeUntil', 'createdAt', 'updatedAt', 'updatedBy'
     ]);
   }
 

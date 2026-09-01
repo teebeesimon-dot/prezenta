@@ -132,7 +132,7 @@ export default function PlayerCard({
       <div className="absolute inset-x-[15%] top-[65%] z-10 text-center text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.75)]">
         <div className="truncate border-b border-white/40 pb-[1cqw] font-black uppercase leading-tight tracking-tight text-[5.5cqw]">{playerName}</div>
         {isStage && (
-          <div className="mt-[0.8cqw] font-bold uppercase leading-none tracking-wider text-white/80 text-[2.4cqw]">{card.cardType === "totw" || card.awardIds.includes("totw") ? "TOTW" : "Card special"} · Etapa {card.stageNumber}</div>
+          <div className="mt-[0.8cqw] font-bold uppercase leading-none tracking-wider text-white/80 text-[2.4cqw]">{card.awardIds.includes("totw_goalkeeper") ? "TOTW portar" : card.cardType === "totw" || card.awardIds.includes("totw") ? "TOTW jucător" : "Card special"} · Etapa {card.stageNumber}</div>
         )}
       </div>
 
