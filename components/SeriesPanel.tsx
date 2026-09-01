@@ -50,7 +50,7 @@ function frequencyLabel(frequency: Series["frequency"]): string {
 
 export default function SeriesPanel({
   seriesId,
-  currentViewedEventId: _currentViewedEventId,
+  currentViewedEventId,
   isOwner,
 }: SeriesPanelProps) {
   const router = useRouter();
@@ -58,9 +58,9 @@ export default function SeriesPanel({
   const [history, setHistory] = useState<Event[]>([]);
   const [busy, setBusy] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [selectedHistoricalEventId, setSelectedHistoricalEventId] =
-    useState("");
-  const [showHistoricalView, setShowHistoricalView] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState(currentViewedEventId);
+
+  useEffect(() => setSelectedEventId(currentViewedEventId), [currentViewedEventId]);
 
   // Live series doc (status, endDate, monthlyPrice, current occurrence).
   useEffect(() => {
@@ -99,13 +99,9 @@ export default function SeriesPanel({
     getHistoricalSeriesEvents(seriesId, series.title),
     history,
   );
-  const historicalEvents = occurrences.flatMap((occurrence) =>
-    occurrence.kind === "archived" ? [occurrence.event] : [],
+  const availableOccurrences = occurrences.filter(
+    (occurrence): occurrence is Extract<SeriesOccurrence, { kind: "live" }> => occurrence.kind === "live",
   );
-  const selectedHistoricalEvent = historicalEvents.find(
-    (event) => event.eventId === selectedHistoricalEventId,
-  );
-
   async function handleClose() {
     if (!series) return;
     setBusy(true);
@@ -136,72 +132,6 @@ export default function SeriesPanel({
       setBusy(false);
       setConfirmingDelete(false);
     }
-  }
-
-  if (showHistoricalView && selectedHistoricalEvent) {
-    const fullDate = new Intl.DateTimeFormat("ro-RO", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    })
-      .format(new Date(`${selectedHistoricalEvent.date}T12:00:00`))
-      .replace(".", "")
-      .toLocaleUpperCase("ro-RO");
-
-    return (
-      <section className="mt-6 rounded-2xl border border-border bg-card p-6 shadow-sm">
-        <button
-          type="button"
-          onClick={() => setShowHistoricalView(false)}
-          className="rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-card-foreground transition hover:bg-muted"
-        >
-          ← Înapoi la serie
-        </button>
-
-        <div className="mt-6 flex flex-col gap-3">
-          <span className="w-fit rounded-full bg-muted px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Istoric
-          </span>
-          <div>
-            <h2 className="text-balance text-2xl font-bold text-card-foreground">
-              {selectedHistoricalEvent.title}
-            </h2>
-            <p className="mt-1 font-mono text-sm font-bold text-primary">
-              {fullDate}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6 rounded-xl border border-border bg-background p-5">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Detalii meci
-          </h3>
-          <dl className="mt-4 flex flex-col gap-3 text-sm">
-            <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-muted-foreground">Data</dt>
-              <dd className="font-semibold text-foreground">{fullDate}</dd>
-            </div>
-            <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-muted-foreground">Titlu</dt>
-              <dd className="font-semibold text-foreground">
-                {selectedHistoricalEvent.title}
-              </dd>
-            </div>
-            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-3">
-              <dt className="text-muted-foreground">Event ID</dt>
-              <dd className="break-all font-mono text-xs font-semibold text-foreground">
-                {selectedHistoricalEvent.eventId}
-              </dd>
-            </div>
-          </dl>
-        </div>
-
-        <p className="mt-4 rounded-xl border border-border bg-muted/50 p-4 text-sm leading-relaxed text-muted-foreground">
-          Detaliile acestui meci nu mai sunt disponibile deoarece datele
-          istorice nu mai există în baza de date.
-        </p>
-      </section>
-    );
   }
 
   return (
@@ -266,31 +196,29 @@ export default function SeriesPanel({
 
       <div className="mt-5">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Istoric meciuri
+          Data activă a evenimentului
         </h2>
-        <label htmlFor="historical-match" className="sr-only">
-          Selectează un meci istoric
+        <label htmlFor="series-occurrence" className="sr-only">
+          Selectează data evenimentului
         </label>
         <select
-          id="historical-match"
-          value={selectedHistoricalEventId}
+          id="series-occurrence"
+          value={selectedEventId}
           onChange={(event) => {
             const eventId = event.target.value;
-            setSelectedHistoricalEventId(eventId);
-            if (eventId) setShowHistoricalView(true);
+            setSelectedEventId(eventId);
+            if (eventId && eventId !== currentViewedEventId) router.push(`/event/${eventId}`);
           }}
           className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-3 text-sm font-semibold text-foreground"
         >
-          <option value="">Selectează un meci istoric</option>
-          {historicalEvents.map((event) => (
-            <option key={event.eventId} value={event.eventId}>
-              {compactDate(event.date)} - {event.title}
+          {availableOccurrences.map(({ event }) => (
+            <option key={event.id} value={event.id}>
+              {compactDate(event.date)} - Etapa {event.seriesIndex ?? 1} - {event.title}
             </option>
           ))}
         </select>
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-          Meciurile istorice pot fi consultate, dar detaliile lor nu mai sunt
-          disponibile.
+          Data selectată controlează evenimentul, prezența, echipele și meciurile din toate paginile acestei etape.
         </p>
       </div>
 

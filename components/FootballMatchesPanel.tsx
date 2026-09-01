@@ -63,9 +63,9 @@ export default function FootballMatchesPanel({ groupId, eventId, stageNumber, te
 
   const currentTeamNames = useMemo(() => teamNames(colors), [colors]);
   const nextOrder = useMemo(() => {
-    const used = new Set(matches.filter((match) => match.stageNumber === stageNumber).map((match) => match.matchOrder));
+    const used = new Set(matches.filter((match) => match.eventId === eventId && match.stageNumber === stageNumber).map((match) => match.matchOrder));
     let order = 1; while (used.has(order)) order += 1; return order;
-  }, [matches, stageNumber]);
+  }, [eventId, matches, stageNumber]);
 
   async function persist(match: FootballMatch) {
     if (!user) return;
@@ -78,7 +78,7 @@ export default function FootballMatchesPanel({ groupId, eventId, stageNumber, te
     finally { setSaving(false); }
   }
 
-  const stageMatches = matches.filter((match) => match.stageNumber === stageNumber);
+  const stageMatches = matches.filter((match) => match.eventId === eventId && match.stageNumber === stageNumber);
   return <div className="flex flex-col gap-4">
     <section className="event-panel p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold text-primary">Sistem fotbal</p><h2 className="text-2xl font-extrabold text-foreground">Meciuri · Etapa {stageNumber}</h2></div>{activeTab === "current" && canManage && <button type="button" onClick={() => { setEditing(null); setShowForm(true); }} className="rounded-xl bg-primary px-4 py-2.5 font-semibold text-primary-foreground">Adaugă meci</button>}</div>
