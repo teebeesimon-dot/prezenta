@@ -41,7 +41,7 @@ export default function PlayerCard({
     toty: "/player-cards/toty.png",
   };
   const cardType = isStage
-    ? card.cardType === "totw" || card.awardIds.includes("totw") ? "toty" : card.position === "GK" ? "stage-goalkeeper" : "stage-player"
+    ? card.position === "GK" ? "stage-goalkeeper" : "stage-player"
     : card.cardType ?? "standard";
   const artwork = cardArtwork[cardType];
   const displayedOverall = "currentOverall" in card ? card.currentOverall ?? card.overall : card.overall;
