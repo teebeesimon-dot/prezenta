@@ -240,6 +240,33 @@ export default function PlayerCardSection({
         </p>
       )}
 
+      {view !== "voting" && (() => {
+        const totwCards = allStageCards
+          .filter((card) => card.stageNumber === currentStageNumber && (card.cardType === "totw" || card.awardIds.includes("totw") || card.awardIds.includes("totw_goalkeeper")))
+          .sort((a, b) => Number(a.awardIds.includes("totw_goalkeeper")) - Number(b.awardIds.includes("totw_goalkeeper")));
+        if (totwCards.length === 0) return null;
+        return (
+          <section className="mt-8 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm">
+            <div className="flex flex-col gap-1">
+              <div className="text-xs font-bold uppercase tracking-wider text-primary">Team of the Week · Etapa {currentStageNumber}</div>
+              <h2 className="text-xl font-bold text-foreground">Cardurile TOTW ale etapei</h2>
+              <p className="text-sm text-muted-foreground">Jucătorii premiați în etapa curentă. Apasă un card pentru detalii.</p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {totwCards.map((card) => {
+                const member = members.find((item) => item.userId === card.userId);
+                return (
+                  <button key={card.id} type="button" onClick={() => setSelectedUserId(card.userId)} className="flex flex-col items-center gap-2 rounded-2xl border border-primary/30 bg-background p-2 text-left transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-md">
+                    <PlayerCard card={card} compact playerName={member?.userName} playerPhoto={member?.userPhoto} />
+                    <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-bold text-primary-foreground">{card.awardIds.includes("totw_goalkeeper") ? "TOTW portar" : "TOTW jucător"}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
+
       {view !== "voting" && allBaseCards.length > 0 && (
         <section className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
           <div className="flex flex-col gap-1">
