@@ -19,6 +19,7 @@ import { toFirestoreLocation } from "@/lib/location";
 import {
   nextOccurrenceAfter,
   nextOccurrenceOnOrAfter,
+  occurrenceIndex,
   todayISO,
   type RecurrenceFrequency,
 } from "@/lib/recurrence";
@@ -94,6 +95,8 @@ function buildOccurrenceData(
     maxParticipants: number;
     ownerId: string;
     paymentModel: PaymentModel;
+    startDate: string;
+    frequency: RecurrenceFrequency;
     footballFormat?: Series["footballFormat"];
     pricePerHour?: number;
     heroImageUrl?: string;
@@ -105,7 +108,14 @@ function buildOccurrenceData(
   seriesId: string,
   occurrenceDate: string
 ): Record<string, unknown> {
+  // Stage number = 1-based position of this occurrence on the series grid.
+  const seriesIndex = occurrenceIndex(
+    series.startDate,
+    series.frequency,
+    occurrenceDate
+  );
   return {
+    ...(seriesIndex > 0 ? { seriesIndex } : {}),
     title: series.title,
     sport: series.sport,
     time: series.time,
@@ -163,6 +173,8 @@ export async function createSeries(input: CreateSeriesInput): Promise<string> {
         maxParticipants: input.maxParticipants,
         ownerId: input.ownerId,
         paymentModel: input.paymentModel,
+        startDate: input.startDate,
+        frequency: input.frequency,
         footballFormat: input.footballFormat,
         pricePerHour: input.pricePerHour,
         registrationLeadValue: input.registrationLeadValue,
@@ -257,6 +269,8 @@ export async function ensureCurrentOccurrence(
         maxParticipants: series.maxParticipants,
         ownerId: series.ownerId,
         paymentModel: series.paymentModel,
+        startDate: series.startDate,
+        frequency: series.frequency,
         footballFormat: series.footballFormat,
         pricePerHour: series.pricePerHour,
         heroImageUrl: series.heroImageUrl,

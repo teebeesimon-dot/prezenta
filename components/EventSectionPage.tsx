@@ -10,6 +10,7 @@ import FootballMatchesPanel from "@/components/FootballMatchesPanel";
 import PlayerCardSection from "@/components/PlayerCardSection";
 import TeamGenerator from "@/components/TeamGenerator";
 import { useAuth } from "@/contexts/AuthProvider";
+import { useEventStage } from "@/lib/event-stage";
 import { mapFirestoreEvent } from "@/lib/events";
 import { db } from "@/lib/firebase";
 import { resolveGroup } from "@/lib/members";
@@ -35,6 +36,7 @@ export default function EventSectionPage({
   const { user, loading } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const stageNumber = useEventStage(event);
 
   useEffect(() => {
     if (loading || !user) {
@@ -123,14 +125,14 @@ export default function EventSectionPage({
         <FootballMatchesPanel
           groupId={group.groupId}
           eventId={event.id}
-          stageNumber={event.seriesIndex ?? 1}
+          stageNumber={stageNumber}
           teams={event.teams}
           canManage={canManage}
         />
       )}
       {section === "cards" && (
         <>
-          <PlayerCardSection groupId={group.groupId} view="cards" />
+          <PlayerCardSection groupId={group.groupId} view="cards" stageNumber={stageNumber} />
           {canManage && <AdminPlayerCards groupId={group.groupId} />}
         </>
       )}

@@ -42,12 +42,16 @@ async function resolveCurrentStage(groupId: string): Promise<number> {
 export default function PlayerCardSection({
   groupId,
   view = "all",
+  stageNumber,
 }: {
   groupId: string;
   view?: "all" | "cards" | "voting";
+  /** When provided, pins the section to the viewed occurrence's stage instead
+   * of resolving the series' current occurrence. */
+  stageNumber?: number;
 }) {
   const { user } = useAuth();
-  const [currentStageNumber, setCurrentStageNumber] = useState(1);
+  const [currentStageNumber, setCurrentStageNumber] = useState(stageNumber ?? 1);
   const [allBaseCards, setAllBaseCards] = useState<PlayerCardData[]>([]);
   const [allStageCards, setAllStageCards] = useState<StageCard[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -63,6 +67,12 @@ export default function PlayerCardSection({
   useEffect(() => subscribeToGroupMembers(groupId, setMembers), [groupId]);
 
   useEffect(() => {
+    // A stage passed from the viewed occurrence always wins so cards/voting
+    // stay scoped to the occurrence being viewed.
+    if (typeof stageNumber === "number" && stageNumber > 0) {
+      setCurrentStageNumber(stageNumber);
+      return;
+    }
     let active = true;
     (async () => {
       try {
@@ -82,7 +92,7 @@ export default function PlayerCardSection({
     return () => {
       active = false;
     };
-  }, [groupId]);
+  }, [groupId, stageNumber]);
 
   useEffect(() => {
     if (!user || !groupId) return;

@@ -1,9 +1,11 @@
 "use client";
 
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
+import { resolveOccurrenceStage } from "@/lib/event-stage";
+import { occurrenceIndex } from "@/lib/recurrence";
 import { formatEventDateShort } from "@/lib/events";
 import {
   getHistoricalSeriesEvents,
@@ -90,6 +92,26 @@ export default function SeriesPanel({
       active = false;
     };
   }, [seriesId, series?.ownerId, series?.currentEventId]);
+
+  // Self-healing backfill: occurrences materialized before we started storing
+  // `seriesIndex` default to "Etapa 1". The owner viewing the series persists
+  // the deterministic stage number onto any occurrence missing/wrong it, so
+  // matches, awards and player cards line up across every page.
+  useEffect(() => {
+    if (!isOwner || !series?.startDate || history.length === 0) return;
+    history.forEach((event) => {
+      const index = occurrenceIndex(
+        series.startDate,
+        series.frequency,
+        event.occurrenceDate ?? event.date,
+      );
+      if (index > 0 && event.seriesIndex !== index) {
+        updateDoc(doc(db, "events", event.id), { seriesIndex: index }).catch(
+          () => {},
+        );
+      }
+    });
+  }, [isOwner, series?.startDate, series?.frequency, history]);
 
   if (!series) return null;
 
@@ -213,7 +235,7 @@ export default function SeriesPanel({
         >
           {availableOccurrences.map(({ event }) => (
             <option key={event.id} value={event.id}>
-              {compactDate(event.date)} - Etapa {event.seriesIndex ?? 1} - {event.title}
+              {compactDate(event.date)} - Etapa {resolveOccurrenceStage(event, series)} - {event.title}
             </option>
           ))}
         </select>

@@ -14,6 +14,7 @@ import SeriesPanel from "@/components/SeriesPanel";
 import ShareOnWhatsAppButton from "@/components/ShareOnWhatsAppButton";
 import { useAuth } from "@/contexts/AuthProvider";
 import { db } from "@/lib/firebase";
+import { useEventStage } from "@/lib/event-stage";
 import { formatEventDate, mapFirestoreEvent } from "@/lib/events";
 import { getEventLocationName } from "@/lib/location";
 import { getPlayerCards, type PlayerCardData } from "@/lib/player-cards";
@@ -42,6 +43,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [playerCards, setPlayerCards] = useState<Record<string, PlayerCardData>>({});
   const [selectedCardUserId, setSelectedCardUserId] = useState<string | null>(null);
+  const stageNumber = useEventStage(event);
 
   useEffect(() => {
     // Wait for the initial auth state to resolve before reading the event.
@@ -182,7 +184,6 @@ export default function EventPageClient({ id }: EventPageClientProps) {
     registrationOpenTime: event.registrationOpenTime,
   });
   const isFootball = event.sport === "football";
-  const stageNumber = event.seriesIndex ?? 1;
   const timeValue = `${formatTimeRange(event.time, event.durationMinutes)}${
     event.durationMinutes ? ` (${formatDuration(event.durationMinutes)})` : ""
   }`;

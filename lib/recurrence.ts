@@ -48,6 +48,30 @@ export function generateOccurrenceDates(
   return dates;
 }
 
+/**
+ * Returns the 1-based position of `occurrenceDate` on the series grid anchored
+ * at `startDate` (i.e. its stage number). The first occurrence is 1. Returns 0
+ * when the inputs are invalid or the date precedes the series start.
+ */
+export function occurrenceIndex(
+  startDate: string,
+  frequency: RecurrenceFrequency,
+  occurrenceDate: string
+): number {
+  if (!startDate || !occurrenceDate) return 0;
+  const start = new Date(`${startDate}T12:00:00Z`);
+  const occurrence = new Date(`${occurrenceDate}T12:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(occurrence.getTime()))
+    return 0;
+
+  const diffDays = Math.round(
+    (occurrence.getTime() - start.getTime()) / 86_400_000
+  );
+  if (diffDays < 0) return 0;
+
+  return Math.floor(diffDays / intervalForFrequency(frequency)) + 1;
+}
+
 /** Today's date as an ISO string (YYYY-MM-DD), timezone-safe local. */
 export function todayISO(): string {
   const now = new Date();
