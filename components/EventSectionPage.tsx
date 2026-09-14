@@ -119,6 +119,7 @@ export default function EventSectionPage({
           teams={event.teams}
           isOwner={canManage}
           groupId={group.groupId}
+          stageNumber={stageNumber}
         />
       )}
       {section === "matches" && (

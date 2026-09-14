@@ -5,14 +5,12 @@ import { useAuth } from "@/contexts/AuthProvider";
 import AdminStageAwards from "@/components/AdminStageAwards";
 import { subscribeGroupCardHistory, subscribeGroupStageCards, subscribePlayerCards, type PlayerCardData, type PlayerCardHistoryEntry, type StageCard } from "@/lib/player-cards";
 import type { GeneratedTeams, ParticipantEntry } from "@/lib/types";
-import { createFootballMatch, deleteFootballMatch, saveEvolutionSettings, saveScoringSettings, saveStageTeamColors, subscribeEvolutionSettings, subscribeFootballMatches, subscribeFootballProgress, subscribeScoringSettings, subscribeStageTeamColors, updateFootballMatch, DEFAULT_EVOLUTION, DEFAULT_TEAM_COLORS, emptyScoringSettings, type TeamColor } from "@/lib/football-repository";
+import { createFootballMatch, deleteFootballMatch, saveEvolutionSettings, saveScoringSettings, subscribeEvolutionSettings, subscribeFootballMatches, subscribeFootballProgress, subscribeScoringSettings, subscribeStageTeamColors, updateFootballMatch, DEFAULT_EVOLUTION, emptyScoringSettings, type TeamColor } from "@/lib/football-repository";
 import { calculateMatchScores, type EvolutionLevel, type FootballMatch, type MatchPlayer, type MatchPosition, type PlayerProgress, type ScoringKey, type ScoringSettings } from "@/lib/football-system";
 
 const POSITIONS: MatchPosition[] = ["GK", "DEF", "MID", "ATT"];
 const RULES: Array<[ScoringKey, string]> = [["win","Victorie"],["loss","Înfrângere"],["goal","Gol"],["penaltyWin","Victorie penalty"],["penaltyLoss","Înfrângere la penalty"],["cleanSheet","Clean sheet"],["goalConceded","Gol primit"],["winStreak","Serie 3+ victorii"]];
-const TEAM_LETTERS = ["A", "B", "C"];
-const TEAM_COLORS: TeamColor[] = ["Verde", "Portocaliu", "Negru"];
-function teamNames(colors: TeamColor[]) { return colors.map((color, index) => `Echipa ${TEAM_LETTERS[index]} (${color})`); }
+function teamNames(colors: TeamColor[]) { return colors; }
 
 function teamArrays(teams?: GeneratedTeams | null): ParticipantEntry[][] {
   if (!teams) return [];
@@ -47,8 +45,7 @@ export default function FootballMatchesPanel({ groupId, eventId, stageNumber, te
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [activeTab, setActiveTab] = useState<"current" | "awards" | "history">("current");
-  const [colors, setColors] = useState<TeamColor[]>(DEFAULT_TEAM_COLORS);
-  const [colorDraft, setColorDraft] = useState<TeamColor[]>(DEFAULT_TEAM_COLORS);
+  const [colors, setColors] = useState<TeamColor[]>(["Verde", "Portocaliu", "Negru"]);
   const [stageCards, setStageCards] = useState<StageCard[]>([]);
   const [cardHistory, setCardHistory] = useState<PlayerCardHistoryEntry[]>([]);
 
@@ -57,7 +54,7 @@ export default function FootballMatchesPanel({ groupId, eventId, stageNumber, te
   useEffect(() => subscribeFootballProgress(groupId, setProgress), [groupId]);
   useEffect(() => subscribeScoringSettings(groupId, setScoring), [groupId]);
   useEffect(() => subscribeEvolutionSettings(groupId, setEvolution), [groupId]);
-  useEffect(() => subscribeStageTeamColors(groupId, stageNumber, (next) => { setColors(next); setColorDraft(next); }), [groupId, stageNumber]);
+  useEffect(() => subscribeStageTeamColors(groupId, stageNumber, setColors), [groupId, stageNumber]);
   useEffect(() => subscribeGroupStageCards(groupId, setStageCards), [groupId]);
   useEffect(() => subscribeGroupCardHistory(groupId, setCardHistory), [groupId]);
 
@@ -86,7 +83,7 @@ export default function FootballMatchesPanel({ groupId, eventId, stageNumber, te
       {message && <p role="status" className="mt-4 text-sm text-muted-foreground">{message}</p>}
     </section>
     {activeTab === "current" && <>
-      {canManage && user && <section className="event-panel p-5"><div className="flex flex-wrap items-end justify-between gap-4"><div><h3 className="event-panel-title">Culorile echipelor</h3><p className="mt-1 text-sm text-muted-foreground">Fiecare culoare (Verde, Portocaliu, Negru) aparține unei singure echipe. Când alegi la o echipă o culoare deja folosită, cele două echipe fac schimb automat.</p></div><button type="button" onClick={async()=>{try{await saveStageTeamColors(groupId,stageNumber,colorDraft,user.uid);setMessage("Culorile echipelor au fost salvate.");}catch(error){setMessage(error instanceof Error?error.message:"Culorile nu au putut fi salvate.");}}} disabled={new Set(colorDraft).size!==3} className="rounded-xl bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50">Salvează culorile</button></div><div className="mt-4 grid gap-3 sm:grid-cols-3">{colorDraft.map((color,index)=><label key={index} className="text-sm font-semibold">Echipa {TEAM_LETTERS[index]}<select value={color} onChange={(event)=>{const value=event.target.value as TeamColor;setColorDraft((current)=>{const previous=current[index];return current.map((item,i)=>i===index?value:item===value?previous:item);});}} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5">{TEAM_COLORS.map((option)=><option key={option} value={option}>{option}</option>)}</select></label>)}</div></section>}
+
       {availableTeams.length < 2 && <p className="event-panel p-4 text-sm text-muted-foreground">Generează mai întâi echipele pentru eveniment.</p>}
       {(showForm || editing) && <MatchEditor groupId={groupId} eventId={eventId} stageNumber={stageNumber} teams={availableTeams} teamLabels={currentTeamNames} cards={cards} initial={editing} nextOrder={nextOrder} saving={saving} onCancel={() => { setShowForm(false); setEditing(null); }} onSave={persist} />}
       <MatchList matches={stageMatches} canManage={canManage} onEdit={(match) => { setEditing(match); setShowForm(false); }} />
@@ -117,9 +114,9 @@ function MatchEditor({ groupId,eventId,stageNumber,teams,teamLabels,cards,initia
     const updated = selected.map((value,index) => index === slot ? sourceIndex : value);
     setSelected(updated); setPlayers(draftPlayers(teams, updated, cards)); setOwnGoals([0,0]); setPenalty(null);
   }
-  const names = selected.map((index) => teamLabels[index] ?? `Echipa ${TEAM_LETTERS[index] ?? index + 1}`);
+  const names = selected.map((index) => teamLabels[index] ?? `Culoare ${index + 1}`);
   return <section className="event-panel p-5 sm:p-6"><h2 className="event-panel-title">{initial ? "Editează meciul" : "Meci nou"}</h2>
-    <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_100px]">{[0,1].map((slot) => <label key={slot} className="text-sm font-semibold text-foreground">Echipa {slot + 1}<select value={selected[slot]} onChange={(event) => choose(slot, Number(event.target.value))} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5">{teams.map((_,index) => <option key={index} value={index} disabled={selected[1-slot] === index}>{teamLabels[index] ?? `Echipa ${TEAM_LETTERS[index] ?? index + 1}`}</option>)}</select></label>)}<label className="text-sm font-semibold text-foreground">Meciul<input type="number" min={1} placeholder="1" value={inputNumber(order)} onChange={(event) => setOrder(event.target.value === "" ? 0 : Number(event.target.value))} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5" /></label></div>
+    <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_100px]">{[0,1].map((slot) => <label key={slot} className="text-sm font-semibold text-foreground">Culoare {slot + 1}<select value={selected[slot]} onChange={(event) => choose(slot, Number(event.target.value))} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5">{teams.map((_,index) => <option key={index} value={index} disabled={selected[1-slot] === index}>{teamLabels[index] ?? teamLabels[index] ?? `Culoare ${index + 1}`}</option>)}</select></label>)}<label className="text-sm font-semibold text-foreground">Meciul<input type="number" min={1} placeholder="1" value={inputNumber(order)} onChange={(event) => setOrder(event.target.value === "" ? 0 : Number(event.target.value))} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5" /></label></div>
     <div className="mt-4 flex items-center justify-center gap-3 rounded-xl bg-muted p-4"><span className="font-bold text-foreground">{names[0]}</span><span className="rounded-lg bg-background px-4 py-2 font-mono text-xl font-extrabold">{scores[0]} – {scores[1]}</span><span className="font-bold text-foreground">{names[1]}</span></div>
     {tied && <fieldset className="mt-4 rounded-xl border border-primary/40 bg-primary/5 p-4"><legend className="px-1 text-sm font-bold">Cine a câștigat la penalty?</legend><div className="mt-2 flex flex-wrap gap-2">{[0,1].map((index) => <button key={index} type="button" aria-pressed={penalty===index} onClick={() => setPenalty(index)} className={`rounded-xl border px-4 py-2.5 text-sm font-semibold ${penalty===index ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-foreground"}`}>{names[index]}</button>)}</div>{penalty===null && <p className="mt-2 text-sm font-medium text-destructive">Alegerea câștigătoarei este obligatorie la egal.</p>}</fieldset>}
     <div className="mt-5 grid gap-4 md:grid-cols-2">{[0,1].map((teamIndex) => <div key={teamIndex} className="rounded-xl border border-border p-4"><div className="flex items-center justify-between gap-3"><h3 className="font-bold">{names[teamIndex]}</h3><label className="text-xs font-semibold">Autogoluri în favoare<input aria-label={`Autogoluri în favoarea ${names[teamIndex]}`} type="number" min={0} placeholder="0" value={inputNumber(ownGoals[teamIndex] ?? 0)} onChange={(event) => { const value=event.target.value===""?0:Number(event.target.value); setOwnGoals((current)=>current.map((item,index)=>index===teamIndex?value:item)); setPenalty(null); }} className="ml-2 w-16 rounded-lg border border-border bg-background px-2 py-1.5" /></label></div><div className="mt-3 flex flex-col gap-2">{players.filter((player) => player.teamIndex === teamIndex).map((player) => <div key={player.userId} className="grid grid-cols-[1fr_76px_72px] items-center gap-2"><span className="truncate text-sm font-medium">{player.name}</span><select aria-label={`Poziția lui ${player.name}`} value={player.position} onChange={(event) => setPlayers((current)=>current.map((item)=>item.userId===player.userId?{...item,position:event.target.value as MatchPosition}:item))} className="rounded-lg border border-border bg-background px-2 py-2 text-xs">{POSITIONS.map((position)=><option key={position}>{position}</option>)}</select><input aria-label={`Goluri ${player.name}`} type="number" min={0} placeholder="0" value={inputNumber(player.goals)} onChange={(event)=>{const goals=event.target.value===""?0:Number(event.target.value);setPlayers((current)=>current.map((item)=>item.userId===player.userId?{...item,goals}:item));setPenalty(null);}} className="rounded-lg border border-border bg-background px-2 py-2" /></div>)}</div></div>)}</div>

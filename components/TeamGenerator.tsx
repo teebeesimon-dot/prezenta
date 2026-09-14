@@ -11,9 +11,11 @@ import {
 } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import PlayerCard from "@/components/PlayerCard";
+import { useAuth } from "@/contexts/AuthProvider";
 import { db } from "@/lib/firebase";
 import { computeGoingLists, parseTimestamp } from "@/lib/going-list";
 import { getDefaultFootballFormat } from "@/lib/football-formats";
+import { DEFAULT_TEAM_COLORS, saveStageTeamColors, subscribeStageTeamColors, type TeamColor } from "@/lib/football-repository";
 import { generateRandomTeams } from "@/lib/teams";
 import { generateBalancedTeams, type TeamBalanceMetrics } from "@/lib/team-balance";
 import { subscribePlayerCards, type PlayerCardData } from "@/lib/player-cards";
@@ -26,6 +28,7 @@ interface TeamGeneratorProps {
   teams: GeneratedTeams | null | undefined;
   isOwner: boolean;
   groupId: string;
+  stageNumber: number;
 }
 
 function ParticipantAvatar({
@@ -120,7 +123,7 @@ function TeamCard({
                 }
                 className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
               >
-                <span className="truncate text-sm font-medium text-foreground">
+                <span className="min-w-0 break-words text-base font-semibold leading-tight text-foreground sm:text-sm">
                   {player.name}
                 </span>
                 {cards.has(player.userId) && (
@@ -176,8 +179,13 @@ export default function TeamGenerator({
   teams,
   isOwner,
   groupId,
+  stageNumber,
 }: TeamGeneratorProps) {
+  const { user } = useAuth();
   const [confirmed, setConfirmed] = useState<ParticipantEntry[]>([]);
+  const [colors, setColors] = useState<TeamColor[]>(DEFAULT_TEAM_COLORS);
+  const [colorDraft, setColorDraft] = useState<TeamColor[]>(DEFAULT_TEAM_COLORS);
+  const [colorMessage, setColorMessage] = useState("");
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [movingPlayerId, setMovingPlayerId] = useState<string | null>(null);
@@ -190,6 +198,7 @@ export default function TeamGenerator({
   );
 
   useEffect(() => subscribePlayerCards(groupId, setPlayerCards), [groupId]);
+  useEffect(() => subscribeStageTeamColors(groupId, stageNumber, (next) => { setColors(next); setColorDraft(next); }), [groupId, stageNumber]);
 
   useEffect(() => {
     const q = query(
@@ -292,9 +301,7 @@ export default function TeamGenerator({
     ? teams.teams
     : [teams?.teamA ?? [], teams?.teamB ?? []];
   const hasTeams = displayTeams.some((team) => team.length > 0);
-  const teamNames = displayTeams.map(
-    (_, index) => `Echipa ${String.fromCharCode(65 + index)}`,
-  );
+  const teamNames = displayTeams.map((_, index) => colors[index] ?? DEFAULT_TEAM_COLORS[index] ?? "Echipă");
 
   async function handleMovePlayer(
     userId: string,
@@ -364,6 +371,20 @@ export default function TeamGenerator({
         )}
       </div>
 
+      {isOwner && (
+        <section className="mb-5 rounded-2xl border border-border bg-card p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h3 className="text-base font-bold text-foreground">Culorile echipelor</h3>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">Alege culorile aici. În Meciuri vei selecta doar ce două culori joacă.</p>
+            </div>
+            <button type="button" onClick={async () => { try { await saveStageTeamColors(groupId, stageNumber, colorDraft, user?.uid ?? ""); setColorMessage("Culorile au fost salvate."); } catch (error) { setColorMessage(error instanceof Error ? error.message : "Culorile nu au putut fi salvate."); } }} disabled={new Set(colorDraft).size !== 3} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">Salvează culorile</button>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">{colorDraft.map((color, index) => <label key={index} className="text-sm font-semibold text-foreground">{color}<select value={color} onChange={(event) => { const value = event.target.value as TeamColor; setColorDraft((current) => { const previous = current[index]; return current.map((item, itemIndex) => itemIndex === index ? value : item === value ? previous : item); }); }} className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-base font-semibold">{DEFAULT_TEAM_COLORS.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>)}</div>
+          {colorMessage && <p role="status" className="mt-3 text-sm text-muted-foreground">{colorMessage}</p>}
+        </section>
+      )}
+
       {isOwner && confirmed.length < 2 && (
         <p className="mb-4 text-sm text-muted-foreground">
           Sunt necesari cel puțin 2 jucători confirmați pentru a genera echipe.
@@ -374,7 +395,7 @@ export default function TeamGenerator({
         <div className="mb-4 flex flex-wrap gap-2 text-xs font-semibold">
           {balanceMetrics.averages.map((average, index) => (
             <span key={index} className="rounded-full border border-border bg-card px-3 py-1.5 text-foreground">
-              Echipa {String.fromCharCode(65 + index)}: OVR {average}
+              {colors[index] ?? `Culoare ${index + 1}`}: OVR {average}
             </span>
           ))}
           <span className="rounded-full bg-primary/10 px-3 py-1.5 text-primary">
