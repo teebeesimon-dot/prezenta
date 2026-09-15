@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthProvider";
 import AdminStageAwards from "@/components/AdminStageAwards";
+import FootballStandingsPanel from "@/components/FootballStandingsPanel";
 import { subscribeGroupCardHistory, subscribeGroupStageCards, subscribePlayerCards, type PlayerCardData, type PlayerCardHistoryEntry, type StageCard } from "@/lib/player-cards";
 import type { GeneratedTeams, ParticipantEntry } from "@/lib/types";
 import { createFootballMatch, deleteFootballMatch, saveEvolutionSettings, saveScoringSettings, subscribeEvolutionSettings, subscribeFootballMatches, subscribeFootballProgress, subscribeScoringSettings, subscribeStageTeamColors, updateFootballMatch, DEFAULT_EVOLUTION, emptyScoringSettings, type TeamColor } from "@/lib/football-repository";
@@ -44,7 +45,7 @@ export default function FootballMatchesPanel({ groupId, eventId, stageNumber, te
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const [activeTab, setActiveTab] = useState<"current" | "awards" | "history">("current");
+  const [activeTab, setActiveTab] = useState<"current" | "standings" | "awards" | "history">("current");
   const [colors, setColors] = useState<TeamColor[]>(["Verde", "Portocaliu", "Negru"]);
   const [stageCards, setStageCards] = useState<StageCard[]>([]);
   const [cardHistory, setCardHistory] = useState<PlayerCardHistoryEntry[]>([]);
@@ -79,7 +80,7 @@ export default function FootballMatchesPanel({ groupId, eventId, stageNumber, te
   return <div className="flex flex-col gap-4">
     <section className="event-panel p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold text-primary">Sistem fotbal</p><h2 className="text-2xl font-extrabold text-foreground">Meciuri · Etapa {stageNumber}</h2></div>{activeTab === "current" && canManage && <button type="button" onClick={() => { setEditing(null); setShowForm(true); }} className="rounded-xl bg-primary px-4 py-2.5 font-semibold text-primary-foreground">Adaugă meci</button>}</div>
-      <div className="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="Secțiuni meciuri">{([["current","Etapa curentă"],["awards","Premii & Evoluții"],["history","Istoric"]] as const).map(([id,label]) => <button key={id} type="button" role="tab" aria-selected={activeTab===id} onClick={() => setActiveTab(id)} className={`rounded-xl px-4 py-2 text-sm font-semibold ${activeTab===id ? "bg-primary text-primary-foreground" : "border border-border bg-background text-foreground"}`}>{label}</button>)}</div>
+      <div className="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="Secțiuni meciuri">{([["current","Etapa curentă"],["standings","Clasament"],["awards","Premii & Evoluții"],["history","Istoric"]] as const).map(([id,label]) => <button key={id} type="button" role="tab" aria-selected={activeTab===id} onClick={() => setActiveTab(id)} className={`rounded-xl px-4 py-2 text-sm font-semibold ${activeTab===id ? "bg-primary text-primary-foreground" : "border border-border bg-background text-foreground"}`}>{label}</button>)}</div>
       {message && <p role="status" className="mt-4 text-sm text-muted-foreground">{message}</p>}
     </section>
     {activeTab === "current" && <>
@@ -88,6 +89,7 @@ export default function FootballMatchesPanel({ groupId, eventId, stageNumber, te
       {(showForm || editing) && <MatchEditor groupId={groupId} eventId={eventId} stageNumber={stageNumber} teams={availableTeams} teamLabels={currentTeamNames} cards={cards} initial={editing} nextOrder={nextOrder} saving={saving} onCancel={() => { setShowForm(false); setEditing(null); }} onSave={persist} />}
       <MatchList matches={stageMatches} canManage={canManage} onEdit={(match) => { setEditing(match); setShowForm(false); }} />
     </>}
+    {activeTab === "standings" && <FootballStandingsPanel groupId={groupId} currentStageNumber={stageNumber} />}
     {activeTab === "awards" && <><AdminStageAwards groupId={groupId} currentStageNumber={stageNumber} progress={progress} />{canManage && user && <><ScoringEditor groupId={groupId} userId={user.uid} value={scoring} /><EvolutionEditor groupId={groupId} userId={user.uid} value={evolution} /></>}</>}
     {activeTab === "history" && <StageHistory matches={matches} progress={progress} stageCards={stageCards} cardHistory={cardHistory} />}
   </div>;

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { subscribeFootballMatches, subscribeFootballProgress } from "@/lib/football-repository";
 import type { FootballMatch, PlayerProgress } from "@/lib/football-system";
 
- type StandingMode = "overall" | number;
+ type StandingMode = "stage" | "overall";
  type StandingTab = "players" | "teams";
 
  interface PlayerStanding {
@@ -48,9 +48,11 @@ import type { FootballMatch, PlayerProgress } from "@/lib/football-system";
   );
  }
 
- function playerRows(progress: PlayerProgress[], mode: StandingMode): PlayerStanding[] {
+ function playerRows(progress: PlayerProgress[], mode: StandingMode, stageNumber: number): PlayerStanding[] {
   return sortPlayers(progress.map((player) => {
-    const rows = mode === "overall" ? player.breakdown : player.breakdown.filter((item) => item.stageNumber === mode);
+    const rows = mode === "overall"
+      ? player.breakdown.filter((item) => item.stageNumber <= stageNumber)
+      : player.breakdown.filter((item) => item.stageNumber === stageNumber);
     const goals = rows.reduce((sum, row) => sum + row.goals, 0);
     const points = rows.some((row) => row.points !== null) ? rows.reduce((sum, row) => sum + (row.points ?? 0), 0) : null;
     return {
@@ -69,8 +71,10 @@ import type { FootballMatch, PlayerProgress } from "@/lib/football-system";
   }).filter((row) => row.matches > 0));
  }
 
- function teamRows(matches: FootballMatch[], mode: StandingMode): TeamStanding[] {
-  const filtered = mode === "overall" ? matches : matches.filter((match) => match.stageNumber === mode);
+ function teamRows(matches: FootballMatch[], mode: StandingMode, stageNumber: number): TeamStanding[] {
+  const filtered = mode === "overall"
+    ? matches.filter((match) => match.stageNumber <= stageNumber)
+    : matches.filter((match) => match.stageNumber === stageNumber);
   const table = new Map<string, TeamStanding>();
   for (const match of filtered) {
     const scores = match.scores.slice(0, 2);
@@ -100,19 +104,14 @@ import type { FootballMatch, PlayerProgress } from "@/lib/football-system";
   const [matches, setMatches] = useState<FootballMatch[]>([]);
   const [progress, setProgress] = useState<PlayerProgress[]>([]);
   const [tab, setTab] = useState<StandingTab>("players");
-  const [mode, setMode] = useState<StandingMode>("overall");
+  const [mode, setMode] = useState<StandingMode>("stage");
 
   useEffect(() => subscribeFootballMatches(groupId, setMatches), [groupId]);
   useEffect(() => subscribeFootballProgress(groupId, setProgress), [groupId]);
 
-  const stages = useMemo(() => [...new Set(matches.map((match) => match.stageNumber))].sort((a, b) => b - a), [matches]);
-  useEffect(() => {
-    if (mode !== "overall" && !stages.includes(mode)) setMode(stages.includes(currentStageNumber) ? currentStageNumber : "overall");
-  }, [currentStageNumber, mode, stages]);
-
-  const players = useMemo(() => playerRows(progress, mode), [mode, progress]);
-  const teams = useMemo(() => teamRows(matches, mode), [matches, mode]);
-  const label = mode === "overall" ? "Toate etapele" : `Etapa ${mode}`;
+  const players = useMemo(() => playerRows(progress, mode, currentStageNumber), [currentStageNumber, mode, progress]);
+  const teams = useMemo(() => teamRows(matches, mode, currentStageNumber), [currentStageNumber, matches, mode]);
+  const label = mode === "overall" ? `General până la Etapa ${currentStageNumber}` : `Etapa ${currentStageNumber}`;
   const hasData = tab === "players" ? players.length > 0 : teams.length > 0;
 
   return <div className="flex flex-col gap-4">
@@ -120,14 +119,14 @@ import type { FootballMatch, PlayerProgress } from "@/lib/football-system";
       <div>
         <p className="text-sm font-semibold text-primary">Sistem fotbal</p>
         <h2 className="mt-1 text-2xl font-extrabold text-foreground">Clasament</h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Vezi separat clasamentul jucătorilor și al echipelor. „General” cumulează toate etapele, iar fiecare etapă arată doar meciurile ei.</p>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Compară etapa selectată cu clasamentul general acumulat până la această etapă. La următoarea etapă, totalul continuă automat de aici.</p>
       </div>
       <div className="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-muted p-1" role="tablist" aria-label="Tip clasament">
         {([["players", "Jucători"], ["teams", "Echipe"]] as const).map(([id, text]) => <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`rounded-lg px-3 py-2.5 text-sm font-bold transition ${tab === id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}>{text}</button>)}
       </div>
-      <div className="mt-4 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Perioadă clasament">
-        <button type="button" onClick={() => setMode("overall")} aria-pressed={mode === "overall"} className={`whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold ${mode === "overall" ? "bg-primary text-primary-foreground" : "border border-border bg-background text-foreground"}`}>Clasament general</button>
-        {stages.map((stage) => <button key={stage} type="button" onClick={() => setMode(stage)} aria-pressed={mode === stage} className={`whitespace-nowrap rounded-xl px-3 py-2 text-sm font-semibold ${mode === stage ? "bg-primary text-primary-foreground" : "border border-border bg-background text-foreground"}`}>Etapa {stage}{stage === currentStageNumber ? " · curentă" : ""}</button>)}
+      <div className="mt-4 grid grid-cols-2 gap-2" role="tablist" aria-label="Perioadă clasament">
+        <button type="button" onClick={() => setMode("stage")} aria-pressed={mode === "stage"} className={`rounded-xl px-3 py-2.5 text-sm font-semibold ${mode === "stage" ? "bg-primary text-primary-foreground" : "border border-border bg-background text-foreground"}`}>Etapa {currentStageNumber}</button>
+        <button type="button" onClick={() => setMode("overall")} aria-pressed={mode === "overall"} className={`rounded-xl px-3 py-2.5 text-sm font-semibold ${mode === "overall" ? "bg-primary text-primary-foreground" : "border border-border bg-background text-foreground"}`}>General până aici</button>
       </div>
     </section>
     {tab === "players" ? <PlayerStandings rows={players} label={label} hasData={hasData} /> : <TeamStandings rows={teams} label={label} hasData={hasData} />}

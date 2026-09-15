@@ -1,10 +1,6 @@
-import EventSectionPage from "@/components/EventSectionPage";
+import { redirect } from "next/navigation";
 
-export default async function StandingsPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function StandingsRedirect({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <EventSectionPage id={id} section="standings" />;
+  redirect(`/event/${id}/matches`);
 }
