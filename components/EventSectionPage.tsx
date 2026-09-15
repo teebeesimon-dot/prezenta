@@ -7,6 +7,7 @@ import AttendanceSection from "@/components/AttendanceSection";
 import EventDashboardShell from "@/components/EventDashboardShell";
 import MembersGroup from "@/components/MembersGroup";
 import FootballMatchesPanel from "@/components/FootballMatchesPanel";
+import FootballStandingsPanel from "@/components/FootballStandingsPanel";
 import PlayerCardSection from "@/components/PlayerCardSection";
 import TeamGenerator from "@/components/TeamGenerator";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -16,13 +17,14 @@ import { db } from "@/lib/firebase";
 import { resolveGroup } from "@/lib/members";
 import type { Event } from "@/lib/types";
 
-export type EventSection = "group" | "confirmed" | "teams" | "matches" | "cards";
+export type EventSection = "group" | "confirmed" | "teams" | "matches" | "standings" | "cards";
 
 const titles: Record<EventSection, string> = {
   group: "Grup",
   confirmed: "Confirmați",
   teams: "Echipe",
   matches: "Meciuri",
+  standings: "Clasament",
   cards: "Player Cards",
 };
 
@@ -131,6 +133,7 @@ export default function EventSectionPage({
           canManage={canManage}
         />
       )}
+      {section === "standings" && <FootballStandingsPanel groupId={group.groupId} currentStageNumber={stageNumber} />}
       {section === "cards" && (
         <>
           <PlayerCardSection groupId={group.groupId} view="cards" stageNumber={stageNumber} />
