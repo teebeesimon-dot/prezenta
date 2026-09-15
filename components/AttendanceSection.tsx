@@ -181,19 +181,23 @@ function RankedParticipantList({
                 <span className="w-6 shrink-0 text-xs font-bold text-primary">
                   {participant.positionLabel}
                 </span>
-                <PlayerCardThumb
-                  card={card}
-                  name={participant.name}
-                  photoURL={participant.photoURL}
-                  onOpen={onOpenCard ? () => onOpenCard(participant.userId) : undefined}
-                />
+                <span className="flex w-16 shrink-0 flex-col items-center gap-1">
+                  <PlayerCardThumb
+                    card={card}
+                    name={participant.name}
+                    photoURL={participant.photoURL}
+                    onOpen={onOpenCard ? () => onOpenCard(participant.userId) : undefined}
+                  />
+                  {sub ? (
+                    <span className="w-full rounded-md border border-primary/25 bg-primary/10 px-1 py-0.5 text-center text-[10px] font-bold leading-tight text-primary">
+                      {sub}
+                    </span>
+                  ) : null}
+                </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold text-foreground">
                     {participant.name}
                   </span>
-                  {sub ? (
-                    <span className="block text-xs text-muted-foreground">{sub}</span>
-                  ) : null}
                 </span>
               </li>
             );
@@ -236,19 +240,23 @@ function SimpleParticipantList({
                 key={participant.userId}
                 className="flex items-center gap-3 rounded-lg bg-card/70 px-3 py-2"
               >
-                <PlayerCardThumb
-                  card={card}
-                  name={participant.name}
-                  photoURL={participant.photoURL}
-                  onOpen={onOpenCard ? () => onOpenCard(participant.userId) : undefined}
-                />
+                <span className="flex w-16 shrink-0 flex-col items-center gap-1">
+                  <PlayerCardThumb
+                    card={card}
+                    name={participant.name}
+                    photoURL={participant.photoURL}
+                    onOpen={onOpenCard ? () => onOpenCard(participant.userId) : undefined}
+                  />
+                  {sub ? (
+                    <span className="w-full rounded-md border border-primary/25 bg-primary/10 px-1 py-0.5 text-center text-[10px] font-bold leading-tight text-primary">
+                      {sub}
+                    </span>
+                  ) : null}
+                </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold text-foreground">
                     {participant.name}
                   </span>
-                  {sub ? (
-                    <span className="block text-xs text-muted-foreground">{sub}</span>
-                  ) : null}
                 </span>
               </li>
             );
