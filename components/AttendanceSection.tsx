@@ -119,11 +119,13 @@ function PlayerCardThumb({
   name,
   photoURL,
   onOpen,
+  rating,
 }: {
   card?: PlayerCardData;
   name: string;
   photoURL: string | null;
   onOpen?: () => void;
+  rating?: string | null;
 }) {
   if (card && onOpen) {
     return (
@@ -133,7 +135,14 @@ function PlayerCardThumb({
         aria-label={`Vezi cardul lui ${name}`}
         className="shrink-0 rounded-md transition hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
-        <PlayerCard card={card} playerName={name} mini widthClass="w-12 sm:w-14" />
+        <span className="relative block">
+          <PlayerCard card={card} playerName={name} mini widthClass="w-12 sm:w-14" />
+          {rating ? (
+            <span className="absolute inset-x-[8%] bottom-[5%] rounded-md border border-primary/50 bg-background/90 px-0.5 py-0.5 text-center text-[7px] font-black leading-none text-primary shadow-sm">
+              {rating}
+            </span>
+          ) : null}
+        </span>
       </button>
     );
   }
@@ -187,12 +196,8 @@ function RankedParticipantList({
                     name={participant.name}
                     photoURL={participant.photoURL}
                     onOpen={onOpenCard ? () => onOpenCard(participant.userId) : undefined}
+                    rating={sub}
                   />
-                  {sub ? (
-                    <span className="w-full rounded-md border border-primary/25 bg-primary/10 px-1 py-0.5 text-center text-[10px] font-bold leading-tight text-primary">
-                      {sub}
-                    </span>
-                  ) : null}
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold text-foreground">
@@ -246,12 +251,8 @@ function SimpleParticipantList({
                     name={participant.name}
                     photoURL={participant.photoURL}
                     onOpen={onOpenCard ? () => onOpenCard(participant.userId) : undefined}
+                    rating={sub}
                   />
-                  {sub ? (
-                    <span className="w-full rounded-md border border-primary/25 bg-primary/10 px-1 py-0.5 text-center text-[10px] font-bold leading-tight text-primary">
-                      {sub}
-                    </span>
-                  ) : null}
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold text-foreground">
@@ -680,12 +681,8 @@ export default function AttendanceSection({
                           name={player.name}
                           photoURL={player.photoURL}
                           onOpen={onOpenCard ? () => onOpenCard(player.userId) : undefined}
+                          rating={sub}
                         />
-                        {sub ? (
-                          <span className="w-full rounded-md border border-primary/25 bg-primary/10 px-1 py-0.5 text-center text-[10px] font-bold leading-tight text-primary">
-                            {sub}
-                          </span>
-                        ) : null}
                       </span>
                       <div className="flex min-w-0 flex-1 flex-col gap-1 pt-1">
                         <span className="truncate text-sm font-semibold text-foreground">
