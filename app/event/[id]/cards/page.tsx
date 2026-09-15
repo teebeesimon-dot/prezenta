@@ -1,10 +1,6 @@
-import EventSectionPage from "@/components/EventSectionPage";
+import { redirect } from "next/navigation";
 
-export default async function CardsPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function CardsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <EventSectionPage id={id} section="cards" />;
+  redirect(`/event/${id}/matches`);
 }

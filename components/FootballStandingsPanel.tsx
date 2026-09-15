@@ -71,10 +71,8 @@ import type { FootballMatch, PlayerProgress } from "@/lib/football-system";
   }).filter((row) => row.matches > 0));
  }
 
- function teamRows(matches: FootballMatch[], mode: StandingMode, stageNumber: number): TeamStanding[] {
-  const filtered = mode === "overall"
-    ? matches.filter((match) => match.stageNumber <= stageNumber)
-    : matches.filter((match) => match.stageNumber === stageNumber);
+ function teamRows(matches: FootballMatch[], stageNumber: number): TeamStanding[] {
+  const filtered = matches.filter((match) => match.stageNumber === stageNumber);
   const table = new Map<string, TeamStanding>();
   for (const match of filtered) {
     const scores = match.scores.slice(0, 2);
@@ -107,10 +105,11 @@ import type { FootballMatch, PlayerProgress } from "@/lib/football-system";
   const [mode, setMode] = useState<StandingMode>("stage");
 
   useEffect(() => subscribeFootballMatches(groupId, setMatches), [groupId]);
+  useEffect(() => { if (tab === "teams") setMode("stage"); }, [tab]);
   useEffect(() => subscribeFootballProgress(groupId, setProgress), [groupId]);
 
   const players = useMemo(() => playerRows(progress, mode, currentStageNumber), [currentStageNumber, mode, progress]);
-  const teams = useMemo(() => teamRows(matches, mode, currentStageNumber), [currentStageNumber, matches, mode]);
+  const teams = useMemo(() => teamRows(matches, currentStageNumber), [currentStageNumber, matches]);
   const label = mode === "overall" ? `General până la Etapa ${currentStageNumber}` : `Etapa ${currentStageNumber}`;
   const hasData = tab === "players" ? players.length > 0 : teams.length > 0;
 
@@ -119,15 +118,15 @@ import type { FootballMatch, PlayerProgress } from "@/lib/football-system";
       <div>
         <p className="text-sm font-semibold text-primary">Sistem fotbal</p>
         <h2 className="mt-1 text-2xl font-extrabold text-foreground">Clasament</h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Compară etapa selectată cu clasamentul general acumulat până la această etapă. La următoarea etapă, totalul continuă automat de aici.</p>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">Clasamentul jucătorilor poate fi văzut pentru etapa selectată sau cumulat până aici. Echipele sunt afișate doar pentru etapa selectată, deoarece componența lor se schimbă.</p>
       </div>
       <div className="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-muted p-1" role="tablist" aria-label="Tip clasament">
         {([["players", "Jucători"], ["teams", "Echipe"]] as const).map(([id, text]) => <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`rounded-lg px-3 py-2.5 text-sm font-bold transition ${tab === id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}>{text}</button>)}
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2" role="tablist" aria-label="Perioadă clasament">
+      {tab === "players" && <div className="mt-4 grid grid-cols-2 gap-2" role="tablist" aria-label="Perioadă clasament">
         <button type="button" onClick={() => setMode("stage")} aria-pressed={mode === "stage"} className={`rounded-xl px-3 py-2.5 text-sm font-semibold ${mode === "stage" ? "bg-primary text-primary-foreground" : "border border-border bg-background text-foreground"}`}>Etapa {currentStageNumber}</button>
         <button type="button" onClick={() => setMode("overall")} aria-pressed={mode === "overall"} className={`rounded-xl px-3 py-2.5 text-sm font-semibold ${mode === "overall" ? "bg-primary text-primary-foreground" : "border border-border bg-background text-foreground"}`}>General până aici</button>
-      </div>
+      </div>}
     </section>
     {tab === "players" ? <PlayerStandings rows={players} label={label} hasData={hasData} /> : <TeamStandings rows={teams} label={label} hasData={hasData} />}
   </div>;

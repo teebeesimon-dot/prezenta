@@ -2,12 +2,10 @@
 
 import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
-import AdminPlayerCards from "@/components/AdminPlayerCards";
 import AttendanceSection from "@/components/AttendanceSection";
 import EventDashboardShell from "@/components/EventDashboardShell";
 import MembersGroup from "@/components/MembersGroup";
 import FootballMatchesPanel from "@/components/FootballMatchesPanel";
-import PlayerCardSection from "@/components/PlayerCardSection";
 import TeamGenerator from "@/components/TeamGenerator";
 import { useAuth } from "@/contexts/AuthProvider";
 import { useEventStage } from "@/lib/event-stage";
@@ -16,14 +14,13 @@ import { db } from "@/lib/firebase";
 import { resolveGroup } from "@/lib/members";
 import type { Event } from "@/lib/types";
 
-export type EventSection = "group" | "confirmed" | "teams" | "matches" | "cards";
+export type EventSection = "group" | "confirmed" | "teams" | "matches";
 
 const titles: Record<EventSection, string> = {
   group: "Grup",
   confirmed: "Confirmați",
   teams: "Echipe",
   matches: "Meciuri",
-  cards: "Player Cards",
 };
 
 export default function EventSectionPage({
@@ -130,12 +127,6 @@ export default function EventSectionPage({
           teams={event.teams}
           canManage={canManage}
         />
-      )}
-      {section === "cards" && (
-        <>
-          <PlayerCardSection groupId={group.groupId} view="cards" stageNumber={stageNumber} />
-          {canManage && <AdminPlayerCards groupId={group.groupId} />}
-        </>
       )}
     </EventDashboardShell>
   );
