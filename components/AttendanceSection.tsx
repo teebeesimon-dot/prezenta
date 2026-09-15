@@ -669,24 +669,28 @@ export default function AttendanceSection({
                   return (
                     <li
                       key={player.userId}
-                      className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/70 p-2.5"
+                      className="flex items-start gap-3 rounded-xl border border-border/60 bg-card/70 p-2.5"
                     >
-                      <span className="w-5 shrink-0 text-center text-xs font-bold text-primary">
+                      <span className="w-5 shrink-0 pt-2 text-center text-xs font-bold text-primary">
                         {player.positionLabel}
                       </span>
-                      <PlayerCardThumb
-                        card={card}
-                        name={player.name}
-                        photoURL={player.photoURL}
-                        onOpen={onOpenCard ? () => onOpenCard(player.userId) : undefined}
-                      />
-                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="flex w-16 shrink-0 flex-col items-center gap-1">
+                        <PlayerCardThumb
+                          card={card}
+                          name={player.name}
+                          photoURL={player.photoURL}
+                          onOpen={onOpenCard ? () => onOpenCard(player.userId) : undefined}
+                        />
+                        {sub ? (
+                          <span className="w-full rounded-md border border-primary/25 bg-primary/10 px-1 py-0.5 text-center text-[10px] font-bold leading-tight text-primary">
+                            {sub}
+                          </span>
+                        ) : null}
+                      </span>
+                      <div className="flex min-w-0 flex-1 flex-col gap-1 pt-1">
                         <span className="truncate text-sm font-semibold text-foreground">
                           {player.name}
                         </span>
-                        {sub ? (
-                          <span className="text-xs text-muted-foreground">{sub}</span>
-                        ) : null}
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
                             Confirmat
