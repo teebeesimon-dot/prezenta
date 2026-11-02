@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       return new NextResponse(null, { status: 304, headers: { ETag: result.blob.etag, "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" } });
     }
     return new NextResponse(result.stream, {
-      headers: { "Content-Type": result.blob.contentType, ETag: result.blob.etag, "Cache-Control": "public, max-age=3600" },
+      headers: { "Content-Type": result.blob.contentType, ETag: result.blob.etag, "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" },
     });
   } catch {
     return NextResponse.json({ error: "Imagine indisponibilă." }, { status: 404 });
