@@ -30,6 +30,7 @@ export default function LocationAutocomplete({
   const placesRef = useRef<google.maps.PlacesLibrary | null>(null);
   const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
   const requestIdRef = useRef(0);
+  const selectedInputRef = useRef<string | null>(null);
 
   const [inputValue, setInputValue] = useState(
     value?.locationName ?? initialInputValue ?? ""
@@ -86,6 +87,12 @@ export default function LocationAutocomplete({
   useEffect(() => {
     const query = inputValue.trim();
     const places = placesRef.current;
+
+    if (query === selectedInputRef.current) {
+      setSuggestions([]);
+      setIsSearching(false);
+      return;
+    }
 
     if (!isReady || !places || query.length < 3) {
       setSuggestions([]);
@@ -173,6 +180,7 @@ export default function LocationAutocomplete({
         longitude,
       };
 
+      selectedInputRef.current = locationName;
       setInputValue(locationName);
       setSuggestions([]);
       sessionTokenRef.current = null;
@@ -190,6 +198,7 @@ export default function LocationAutocomplete({
   }
 
   function handleInputChange(nextValue: string) {
+    selectedInputRef.current = null;
     setInputValue(nextValue);
     setLoadError("");
 
