@@ -1,10 +1,8 @@
-declare global {
-  interface Window {
-    google?: typeof google;
-  }
-}
-
 import { env } from "@/lib/env";
+
+type GoogleMapsWindow = Window & {
+  google?: typeof google;
+};
 
 let loadPromise: Promise<typeof google> | null = null;
 
@@ -17,13 +15,15 @@ export function loadGoogleMapsPlaces(): Promise<typeof google> {
     return Promise.reject(new Error("Google Maps poate fi incarcat doar in browser."));
   }
 
-  if (window.google?.maps) {
-    return Promise.resolve(window.google);
+  const mapsWindow = window as GoogleMapsWindow;
+  if (
+    mapsWindow.google?.maps &&
+    typeof mapsWindow.google.maps.importLibrary === "function"
+  ) {
+    return Promise.resolve(mapsWindow.google);
   }
 
-  if (loadPromise) {
-    return loadPromise;
-  }
+  if (loadPromise) return loadPromise;
 
   const apiKey = getGoogleMapsApiKey();
   if (!apiKey) {
@@ -33,39 +33,58 @@ export function loadGoogleMapsPlaces(): Promise<typeof google> {
   }
 
   loadPromise = new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = new URL("https://maps.googleapis.com/maps/api/js").toString();
-    const url = new URL(script.src);
-    url.searchParams.set("key", apiKey);
-    url.searchParams.set("loading", "async");
-    url.searchParams.set("v", "weekly");
-    script.src = url.toString();
-    script.async = true;
-    script.defer = true;
+    const googleObject = (mapsWindow.google ??= {} as typeof google);
+    const mapsObject = (googleObject.maps ??= {} as typeof google.maps);
 
-    const fail = (error: Error) => {
-      script.remove();
-      loadPromise = null;
-      reject(error);
-    };
+    // Official Google Maps JS API bootstrap: it defines importLibrary before
+    // loading the API and safely supports libraries requested by the app.
+    const libraries = new Set<string>();
+    let scriptPromise: Promise<void> | null = null;
 
-    script.onload = () => {
-      if (window.google?.maps) {
-        resolve(window.google);
-      } else {
-        fail(new Error("Google Maps s-a incarcat, dar biblioteca Maps nu este disponibila."));
+    const loadApi = () => {
+      if (!scriptPromise) {
+        scriptPromise = new Promise<void>((resolveScript, rejectScript) => {
+          const script = document.createElement("script");
+          const params = new URLSearchParams({
+            key: apiKey,
+            v: "weekly",
+            callback: "google.maps.__ib__",
+          });
+          params.set("loading", "async");
+          params.set("libraries", [...libraries].join(","));
+          script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
+          script.async = true;
+          script.onerror = () => {
+            script.remove();
+            scriptPromise = null;
+            rejectScript(
+              new Error(
+                "Nu s-a putut incarca Google Maps. Verifica cheia API, restrictiile de domeniu si activarea Maps JavaScript API in Google Cloud."
+              )
+            );
+          };
+          mapsObject.__ib__ = () => resolveScript();
+          document.head.appendChild(script);
+        });
       }
+      return scriptPromise;
     };
 
-    script.onerror = () => {
-      fail(
-        new Error(
-          "Nu s-a putut incarca Google Maps. Verifica cheia API, restrictiile de domeniu si activarea Maps JavaScript API in Google Cloud."
-        )
-      );
-    };
+    mapsObject.importLibrary = ((libraryName: string) => {
+      libraries.add(libraryName);
+      return loadApi().then(() => {
+        const library = (mapsObject as unknown as Record<string, unknown>)[libraryName];
+        if (library) return library;
+        throw new Error(`Google Maps nu a returnat biblioteca "${libraryName}".`);
+      });
+    }) as typeof google.maps.importLibrary;
 
-    document.head.appendChild(script);
+    mapsObject.importLibrary("places")
+      .then(() => resolve(googleObject))
+      .catch((error: unknown) => {
+        loadPromise = null;
+        reject(error instanceof Error ? error : new Error("Eroare la incarcarea Google Maps."));
+      });
   });
 
   return loadPromise;
