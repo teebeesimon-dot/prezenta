@@ -66,7 +66,10 @@ export function loadGoogleMapsPlaces(): Promise<typeof google> {
     });
 
     return bootstrapPromise.then(() => {
-      const loadedImportLibrary = mapsObject.importLibrary;
+      const loadedImportLibrary = mapsObject.importLibrary as unknown as (
+        name: string,
+        ...parameters: unknown[]
+      ) => Promise<unknown>;
       if (loadedImportLibrary === importLibrary) {
         throw new Error("Google Maps nu a initializat functia importLibrary.");
       }
