@@ -16,11 +16,10 @@ export function loadGoogleMapsPlaces(): Promise<typeof google> {
   }
 
   const mapsWindow = window as GoogleMapsWindow;
-  if (
-    mapsWindow.google?.maps &&
-    typeof mapsWindow.google.maps.importLibrary === "function"
-  ) {
-    return Promise.resolve(mapsWindow.google);
+  const existingMaps = mapsWindow.google?.maps;
+
+  if (existingMaps && typeof existingMaps.importLibrary === "function") {
+    return existingMaps.importLibrary("places").then(() => mapsWindow.google!);
   }
 
   if (loadPromise) return loadPromise;
@@ -32,61 +31,59 @@ export function loadGoogleMapsPlaces(): Promise<typeof google> {
     );
   }
 
-  loadPromise = new Promise((resolve, reject) => {
-    const googleObject = (mapsWindow.google ??= {} as typeof google);
-    const mapsObject = (googleObject.maps ??= {} as typeof google.maps);
+  const googleObject = (mapsWindow.google ??= {} as typeof google);
+  const mapsObject = (googleObject.maps ??= {} as typeof google.maps);
 
-    // Official Google Maps JS API bootstrap: it defines importLibrary before
-    // loading the API and safely supports libraries requested by the app.
-    const mapsRecord = mapsObject as unknown as Record<string, unknown>;
-    const libraries = new Set<string>();
-    let scriptPromise: Promise<void> | null = null;
+  // Google-recommended dynamic-library bootstrap. The API replaces this
+  // temporary importLibrary function after its script has loaded.
+  const mapsRecord = mapsObject as unknown as Record<string, unknown>;
+  const requestedLibraries = new Set<string>();
+  let bootstrapPromise: Promise<void> | null = null;
 
-    const loadApi = () => {
-      if (!scriptPromise) {
-        scriptPromise = new Promise<void>((resolveScript, rejectScript) => {
-          const script = document.createElement("script");
-          const params = new URLSearchParams({
-            key: apiKey,
-            v: "weekly",
-            callback: "google.maps.__ib__",
-          });
-          params.set("loading", "async");
-          params.set("libraries", [...libraries].join(","));
-          script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
-          script.async = true;
-          script.onerror = () => {
-            script.remove();
-            scriptPromise = null;
-            rejectScript(
-              new Error(
-                "Nu s-a putut incarca Google Maps. Verifica cheia API, restrictiile de domeniu si activarea Maps JavaScript API in Google Cloud."
-              )
-            );
-          };
-          mapsRecord.__ib__ = () => resolveScript();
-          document.head.appendChild(script);
-        });
-      }
-      return scriptPromise;
-    };
-
-    mapsObject.importLibrary = ((libraryName: string) => {
-      libraries.add(libraryName);
-      return loadApi().then(() => {
-        const library = (mapsObject as unknown as Record<string, unknown>)[libraryName];
-        if (library) return library;
-        throw new Error(`Google Maps nu a returnat biblioteca "${libraryName}".`);
-      });
-    }) as typeof google.maps.importLibrary;
-
-    mapsObject.importLibrary("places")
-      .then(() => resolve(googleObject))
-      .catch((error: unknown) => {
+  const importLibrary = ((libraryName: string, ...args: unknown[]) => {
+    requestedLibraries.add(libraryName);
+    bootstrapPromise ??= new Promise<void>((resolve, reject) => {
+      const script = document.createElement("script");
+      const params = new URLSearchParams();
+      params.set("key", apiKey);
+      params.set("v", "weekly");
+      params.set("callback", "google.maps.__ib__");
+      params.set("libraries", [...requestedLibraries].join(","));
+      script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
+      script.async = true;
+      script.onerror = () => {
+        script.remove();
+        bootstrapPromise = null;
         loadPromise = null;
-        reject(error instanceof Error ? error : new Error("Eroare la incarcarea Google Maps."));
-      });
-  });
+        reject(
+          new Error(
+            "Nu s-a putut incarca Google Maps. Verifica cheia API, restrictiile de domeniu si activarea Maps JavaScript API in Google Cloud."
+          )
+        );
+      };
+      mapsRecord.__ib__ = resolve;
+      document.head.appendChild(script);
+    });
+
+    return bootstrapPromise.then(() => {
+      const loadedImportLibrary = mapsObject.importLibrary;
+      if (loadedImportLibrary === importLibrary) {
+        throw new Error("Google Maps nu a initializat functia importLibrary.");
+      }
+      return loadedImportLibrary(libraryName, ...args);
+    });
+  }) as typeof google.maps.importLibrary;
+
+  mapsObject.importLibrary = importLibrary;
+
+  loadPromise = importLibrary("places")
+    .then(() => googleObject)
+    .catch((error: unknown) => {
+      loadPromise = null;
+      throw error instanceof Error
+        ? error
+        : new Error("Eroare la incarcarea bibliotecii Google Maps Places.");
+    });
 
   return loadPromise;
 }
