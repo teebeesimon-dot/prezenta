@@ -38,6 +38,7 @@ export function loadGoogleMapsPlaces(): Promise<typeof google> {
 
     // Official Google Maps JS API bootstrap: it defines importLibrary before
     // loading the API and safely supports libraries requested by the app.
+    const mapsRecord = mapsObject as unknown as Record<string, unknown>;
     const libraries = new Set<string>();
     let scriptPromise: Promise<void> | null = null;
 
@@ -63,7 +64,7 @@ export function loadGoogleMapsPlaces(): Promise<typeof google> {
               )
             );
           };
-          mapsObject.__ib__ = () => resolveScript();
+          mapsRecord.__ib__ = () => resolveScript();
           document.head.appendChild(script);
         });
       }
