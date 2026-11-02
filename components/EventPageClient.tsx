@@ -257,7 +257,6 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         registrationOpenTime={event.registrationOpenTime}
         view="response-confirmed"
       />
-}
     </EventDashboardShell>
   );
 }
