@@ -25,6 +25,7 @@ export default function EventHeroImage({ event, canManage = false, className = "
   const [error, setError] = useState("");
 
   const groupId = event.seriesId ?? event.id;
+  const currentImageHash = (event as Event & { heroImageHash?: string }).heroImageHash;
 
   async function handleFile(file: File | null) {
     setError("");
@@ -39,10 +40,13 @@ export default function EventHeroImage({ event, canManage = false, className = "
     }
     setBusy(true);
     try {
+      const optimizedFile = await optimizeImage(file);
+      const imageHash = await getFileHash(optimizedFile);
+      if (imageHash === currentImageHash) return;
       const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error("Sesiunea a expirat.");
       const body = new FormData();
-      body.set("file", file);
+      body.set("file", optimizedFile, "event-image.webp");
       body.set("groupId", groupId);
       const response = await fetch("/api/event-image", {
         method: "POST",
@@ -51,9 +55,9 @@ export default function EventHeroImage({ event, canManage = false, className = "
       });
       const result = (await response.json()) as { url?: string; error?: string };
       if (!response.ok || !result.url) throw new Error(result.error ?? "Încărcarea a eșuat.");
-      await updateDoc(doc(db, "events", event.id), { heroImageUrl: result.url });
+      await updateDoc(doc(db, "events", event.id), { heroImageUrl: result.url, heroImageHash: imageHash });
       if (event.seriesId) {
-        await updateDoc(doc(db, "series", event.seriesId), { heroImageUrl: result.url }).catch(() => {});
+        await updateDoc(doc(db, "series", event.seriesId), { heroImageUrl: result.url, heroImageHash: imageHash }).catch(() => {});
       }
       setHeroUrl(result.url);
     } catch (uploadError) {
@@ -99,6 +103,30 @@ export default function EventHeroImage({ event, canManage = false, className = "
       )}
     </div>
   );
+}
+
+async function optimizeImage(file: File): Promise<File> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const maxDimension = 1600;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.82));
+    if (!blob || blob.type !== "image/webp") return file;
+    return new File([blob], "event-image.webp", { type: "image/webp", lastModified: Date.now() });
+  } finally {
+    bitmap.close();
+  }
+}
+
+async function getFileHash(file: File): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function CameraIcon() {

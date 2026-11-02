@@ -43,10 +43,10 @@ export async function GET(request: NextRequest) {
     });
     if (!result) return new NextResponse("Not found", { status: 404 });
     if (result.statusCode === 304) {
-      return new NextResponse(null, { status: 304, headers: { ETag: result.blob.etag, "Cache-Control": "public, max-age=3600" } });
+      return new NextResponse(null, { status: 304, headers: { ETag: result.blob.etag, "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" } });
     }
     return new NextResponse(result.stream, {
-      headers: { "Content-Type": result.blob.contentType, ETag: result.blob.etag, "Cache-Control": "public, max-age=3600" },
+      headers: { "Content-Type": result.blob.contentType, ETag: result.blob.etag, "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" },
     });
   } catch {
     return NextResponse.json({ error: "Imagine indisponibilă." }, { status: 404 });

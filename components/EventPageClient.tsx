@@ -9,7 +9,6 @@ import EventDashboardShell from "@/components/EventDashboardShell";
 import EventHeroImage from "@/components/EventHeroImage";
 import EventWeatherPanel from "@/components/EventWeatherPanel";
 import OpenInGoogleMapsButton from "@/components/OpenInGoogleMapsButton";
-import PlayerCardModal from "@/components/PlayerCardModal";
 import SeriesPanel from "@/components/SeriesPanel";
 import ShareOnWhatsAppButton from "@/components/ShareOnWhatsAppButton";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -17,7 +16,6 @@ import { db } from "@/lib/firebase";
 import { useEventStage } from "@/lib/event-stage";
 import { formatEventDate, mapFirestoreEvent } from "@/lib/events";
 import { getEventLocationName } from "@/lib/location";
-import { getPlayerCards, type PlayerCardData } from "@/lib/player-cards";
 import {
   computeRegistrationOpensAt,
   formatRegistrationOpensAt,
@@ -41,8 +39,6 @@ export default function EventPageClient({ id }: EventPageClientProps) {
   const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
-  const [playerCards, setPlayerCards] = useState<Record<string, PlayerCardData>>({});
-  const [selectedCardUserId, setSelectedCardUserId] = useState<string | null>(null);
   const stageNumber = useEventStage(event);
 
   useEffect(() => {
@@ -90,30 +86,6 @@ export default function EventPageClient({ id }: EventPageClientProps) {
 
     return () => unsubscribe();
   }, [id, user, authLoading]);
-
-  // Load the group's player cards so confirmed players can show FIFA-style
-  // thumbnails and open a detail card. Group id is the series (persistent
-  // roster) when present, otherwise the standalone event.
-  const groupId = event?.seriesId ?? event?.id ?? null;
-  useEffect(() => {
-    if (!user || !groupId) return;
-    let active = true;
-    getPlayerCards(groupId)
-      .then((cards) => {
-        if (!active) return;
-        const map: Record<string, PlayerCardData> = {};
-        cards.forEach((card) => {
-          map[card.userId] = card;
-        });
-        setPlayerCards(map);
-      })
-      .catch(() => {
-        if (active) setPlayerCards({});
-      });
-    return () => {
-      active = false;
-    };
-  }, [user, groupId]);
 
   async function handleCopyLink() {
     await navigator.clipboard.writeText(window.location.href);
@@ -187,7 +159,6 @@ export default function EventPageClient({ id }: EventPageClientProps) {
   const timeValue = `${formatTimeRange(event.time, event.durationMinutes)}${
     event.durationMinutes ? ` (${formatDuration(event.durationMinutes)})` : ""
   }`;
-  const selectedCard = selectedCardUserId ? playerCards[selectedCardUserId] : null;
 
   return (
     <EventDashboardShell event={event}>
@@ -285,16 +256,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         registrationLeadUnit={event.registrationLeadUnit}
         registrationOpenTime={event.registrationOpenTime}
         view="response-confirmed"
-        playerCards={playerCards}
-        onOpenCard={(userId) => setSelectedCardUserId(userId)}
       />
-      {selectedCard && (
-        <PlayerCardModal
-          card={selectedCard}
-          playerName={selectedCard.playerName?.trim() || "Jucător"}
-          onClose={() => setSelectedCardUserId(null)}
-        />
-      )}
     </EventDashboardShell>
   );
 }
