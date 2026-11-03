@@ -36,7 +36,14 @@ export function PushNotificationsButton() {
       const supported = await isSupported();
       if (!supported) throw new Error("Firebase Messaging nu este suportat in acest browser.");
 
-      const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+      await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
+      // register() may resolve while the worker is still installing. PushManager
+      // requires an active worker, so wait for the browser's ready registration.
+      const registration = await navigator.serviceWorker.ready;
+      if (!registration.active) {
+        throw new Error("Service Worker-ul pentru notificari nu a devenit activ. Reincarca pagina si incearca din nou.");
+      }
+
       const messaging = getMessaging();
       const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
       if (!token) throw new Error("Nu am putut obtine tokenul pentru notificari.");
