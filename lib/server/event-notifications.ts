@@ -57,9 +57,10 @@ export async function notifyAttendanceChange(input: {
   const confirmed = going.slice(0, max).map((doc) => firestoreString(doc, "userId"));
   const waitlist = going.slice(max);
   const actorResponse = responses.find((doc) => firestoreString(doc, "userId") === input.actorUid);
+  const cycle = actorResponse ? String(timestampMillis(firestoreField(actorResponse, "updatedAt") ?? firestoreField(actorResponse, "createdAt"))) : String(Date.now());
 
   if (input.currentStatus === "vin" && input.previousStatus !== "vin" && max > 0 && going.length === max) {
-    await notifyOnce(`full_${input.eventId}`, [...confirmed, ownerId],
+    await notifyOnce(`full_${input.eventId}_${cycle}`, [...confirmed, ownerId],
       `Locuri ocupate: ${title}`, `Toate cele ${max} locuri pentru eveniment sunt ocupate.`);
   }
 
@@ -68,7 +69,7 @@ export async function notifyAttendanceChange(input: {
     if (promoted) {
       const promotedUid = firestoreString(promoted, "userId");
       const promotedName = firestoreString(promoted, "userName") || "Participant";
-      await notifyOnce(`promotion_${input.eventId}_${input.actorUid}_${promotedUid}`, [ownerId, promotedUid],
+      await notifyOnce(`promotion_${input.eventId}_${input.actorUid}_${promotedUid}_${cycle}`, [ownerId, promotedUid],
         `Ai fost promovat: ${title}`,
         promotedUid === ownerId
           ? "Un participant s-a retras. Locul a fost ocupat automat."
@@ -79,7 +80,7 @@ export async function notifyAttendanceChange(input: {
       const eligible = users
         .map((doc) => firestoreString(doc, "uid") || doc.name.split("/").pop() || "")
         .filter((uid) => uid && uid !== ownerId && !responded.has(uid));
-      await notifyOnce(`open_${input.eventId}_${input.actorUid}`, [...eligible, ownerId],
+      await notifyOnce(`open_${input.eventId}_${input.actorUid}_${cycle}`, [...eligible, ownerId],
         `S-a eliberat un loc: ${title}`,
         "Un loc este disponibil. Deschide evenimentul si confirma daca participi.");
     }
