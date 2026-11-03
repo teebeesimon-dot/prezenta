@@ -10,6 +10,7 @@ import EventHeroImage from "@/components/EventHeroImage";
 import EventWeatherPanel from "@/components/EventWeatherPanel";
 import OpenInGoogleMapsButton from "@/components/OpenInGoogleMapsButton";
 import PlayerCardModal from "@/components/PlayerCardModal";
+import PreviewNotificationTester from "@/components/PreviewNotificationTester";
 import SeriesPanel from "@/components/SeriesPanel";
 import ShareOnWhatsAppButton from "@/components/ShareOnWhatsAppButton";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -274,6 +275,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
           <p className="mt-1 text-sm text-muted-foreground">Acest eveniment a fost anulat de organizator. Inscrierile nu mai sunt disponibile.</p>
         </div>
       )}
+      {canManage && <PreviewNotificationTester eventId={event.id} />}
       {event.seriesId && (
         <SeriesPanel seriesId={event.seriesId} currentViewedEventId={event.id} isOwner={canManage} />
       )}
