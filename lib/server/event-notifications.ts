@@ -33,7 +33,7 @@ function eventTemplate(event: Doc, key: TemplateKey, defaults: { title: string; 
   const saved = firestoreField(event, "notificationTemplates")?.mapValue?.fields?.[key]?.mapValue?.fields;
   const title = saved?.title?.stringValue || defaults.title;
   const body = saved?.body?.stringValue || defaults.body;
-  const replace = (value: string) => value.replace(/\{(eventTitle|eventTime|location|capacity|participantName)\}/g, (match, name: string) => values[name] ?? match);
+  const replace = (value: string) => value.replace(/\{(eventTitle|eventTime|location|capacity|participantName|withdrawnName)\}/g, (match, name: string) => values[name] ?? match);
   return { title: replace(title), body: replace(body) };
 }
 async function notifyEvent(key: string, event: Doc, templateKey: TemplateKey, uids: string[], defaults: { title: string; body: string }, values: Record<string, string> = {}) {
@@ -82,12 +82,17 @@ export async function notifyAttendanceChange(input: {
     if (promoted) {
       const promotedUid = firestoreString(promoted, "userId");
       const promotedName = firestoreString(promoted, "userName") || "Participant";
+      const withdrawnName = actorResponse ? firestoreString(actorResponse, "userName") || "Participant" : "Participant";
+      const replacementValues = { eventTitle: title, participantName: promotedName, withdrawnName };
+      const replacementDefaults = {
+        title: `Inlocuire confirmata: ${title}`,
+        body: `${promotedName} l-a inlocuit pe ${withdrawnName}, care s-a retras.`,
+      };
       await notifyEvent(`promotion_owner_${input.eventId}_${input.actorUid}_${cycle}`, event, "promotion", [ownerId],
-        { title: `Participant inlocuit: ${title}`, body: `Un participant s-a retras, iar ${promotedName} a fost promovat automat de pe lista de asteptare.` },
-        { eventTitle: title, participantName: promotedName });
+        replacementDefaults, replacementValues);
       await notifyEvent(`promotion_user_${input.eventId}_${input.actorUid}_${promotedUid}_${cycle}`, event, "promotion", [promotedUid],
-        { title: `Ai fost promovat: ${title}`, body: "S-a eliberat un loc si ai acum o prezenta confirmata." },
-        { eventTitle: title, participantName: promotedName });
+        { title: `Ai fost promovat: ${title}`, body: `${promotedName} l-a inlocuit pe ${withdrawnName}, care s-a retras.` },
+        replacementValues);
     } else {
       const responded = new Set(responses.map((doc) => firestoreString(doc, "userId")));
       const users = await queryFirestore("users");
