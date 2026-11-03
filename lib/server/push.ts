@@ -171,3 +171,65 @@ export async function sendPushToUser(uid: string, title: string, body: string) {
 
   return { sent: results.filter(Boolean).length, total: tokens.length };
 }
+
+
+type FirestoreValue = { stringValue?: string; integerValue?: string; booleanValue?: boolean; timestampValue?: string; mapValue?: { fields?: Record<string, FirestoreValue> }; arrayValue?: { values?: FirestoreValue[] } };
+type FirestoreDocument = { name: string; fields?: Record<string, FirestoreValue> };
+
+export async function firestoreAccess() {
+  const account = getServiceAccount();
+  return { account, accessToken: await getAccessToken(account) };
+}
+
+export async function getFirestoreDocument(path: string) {
+  const { account, accessToken } = await firestoreAccess();
+  const response = await fetch(`https://firestore.googleapis.com/v1/projects/${account.project_id}/databases/(default)/documents/${path}`, {
+    headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store",
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error("Nu am putut citi datele evenimentului.");
+  return await response.json() as FirestoreDocument;
+}
+
+export async function queryFirestore(collectionId: string, fieldPath?: string, value?: string) {
+  const { account, accessToken } = await firestoreAccess();
+  const structuredQuery: Record<string, unknown> = { from: [{ collectionId }] };
+  if (fieldPath) structuredQuery.where = { fieldFilter: {
+    field: { fieldPath }, op: "EQUAL", value: { stringValue: value ?? "" },
+  } };
+  const response = await fetch(`https://firestore.googleapis.com/v1/projects/${account.project_id}/databases/(default)/documents:runQuery`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ structuredQuery }), cache: "no-store",
+  });
+  if (!response.ok) throw new Error("Nu am putut citi lista de participanti.");
+  const rows = await response.json() as Array<{ document?: FirestoreDocument }>;
+  return rows.flatMap((row) => row.document ? [row.document] : []);
+}
+
+export function firestoreField(doc: FirestoreDocument, key: string): FirestoreValue | undefined {
+  return doc.fields?.[key];
+}
+
+export function firestoreString(doc: FirestoreDocument, key: string): string {
+  return doc.fields?.[key]?.stringValue ?? "";
+}
+
+export function firestoreNumber(doc: FirestoreDocument, key: string): number {
+  const value = doc.fields?.[key];
+  return Number(value?.integerValue ?? value?.stringValue ?? 0);
+}
+
+export async function reserveNotification(key: string): Promise<boolean> {
+  const { account, accessToken } = await firestoreAccess();
+  const url = `https://firestore.googleapis.com/v1/projects/${account.project_id}/databases/(default)/documents/notificationLogs/${encodeURIComponent(key)}?currentDocument.exists=false`;
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ fields: { createdAt: { timestampValue: new Date().toISOString() } } }),
+    cache: "no-store",
+  });
+  if (response.status === 409 || response.status === 412) return false;
+  if (!response.ok) throw new Error("Nu am putut inregistra notificarea.");
+  return true;
+}
