@@ -1,4 +1,4 @@
-export type FootballFormat = "2x6" | "3x5" | "3x6";
+export type FootballFormat = "2x6" | "3x5" | "3x6" | "2x7";
 
 export const FOOTBALL_FORMATS: {
   value: FootballFormat;
@@ -10,6 +10,7 @@ export const FOOTBALL_FORMATS: {
   { value: "2x6", label: "2 echipe × 6 jucători", teams: 2, playersPerTeam: 6, totalPlayers: 12 },
   { value: "3x5", label: "3 echipe × 5 jucători", teams: 3, playersPerTeam: 5, totalPlayers: 15 },
   { value: "3x6", label: "3 echipe × 6 jucători", teams: 3, playersPerTeam: 6, totalPlayers: 18 },
+  { value: "2x7", label: "2 echipe × 7 jucători", teams: 2, playersPerTeam: 7, totalPlayers: 14 },
 ];
 
 export function getFootballFormat(value?: string): (typeof FOOTBALL_FORMATS)[number] {
@@ -21,5 +22,5 @@ export function formatLabel(format?: string): string {
 }
 
 export function getDefaultFootballFormat(maxParticipants?: number): FootballFormat {
-  return maxParticipants === 15 ? "3x5" : maxParticipants === 18 ? "3x6" : "2x6";
+  return maxParticipants === 14 ? "2x7" : maxParticipants === 15 ? "3x5" : maxParticipants === 18 ? "3x6" : "2x6";
 }
