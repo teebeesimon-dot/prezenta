@@ -42,6 +42,7 @@ interface AttendanceSectionProps {
   eventDate?: string;
   eventTime?: string;
   canManage?: boolean;
+  eventCancelled?: boolean;
   paymentModel?: PaymentModel;
   registrationLeadValue?: number;
   registrationLeadUnit?: "hours" | "days";
@@ -277,6 +278,7 @@ export default function AttendanceSection({
   eventDate,
   eventTime,
   canManage = false,
+  eventCancelled = false,
   paymentModel = "per_game",
   registrationLeadValue,
   registrationLeadUnit,
@@ -449,7 +451,7 @@ export default function AttendanceSection({
   }
 
   async function handleResponse(status: AttendanceStatus) {
-    if (!user) return;
+    if (!user || eventCancelled) return;
     if (!registrationOpen) return;
 
     setSubmitting(status);
@@ -548,7 +550,7 @@ export default function AttendanceSection({
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <button
               type="button"
-              disabled={submitting !== null || !registrationOpen}
+              disabled={submitting !== null || !registrationOpen || eventCancelled}
               onClick={() => handleResponse("vin")}
               className={`rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
                 currentStatus === "vin"
