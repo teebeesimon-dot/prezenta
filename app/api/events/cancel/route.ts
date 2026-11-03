@@ -15,7 +15,9 @@ export async function POST(request: NextRequest) {
     const path = `events/${encodeURIComponent(payload.eventId)}`;
     const event = await getFirestoreDocument(path);
     if (!event) return NextResponse.json({ ok: false, error: "Evenimentul nu exista." }, { status: 404 });
-    if (firestoreString(event, "ownerId") !== uid) {
+    const profile = await getFirestoreDocument(`users/${encodeURIComponent(uid)}`);
+    const isSuperAdmin = profile ? firestoreString(profile, "role") === "super_admin" : false;
+    if (firestoreString(event, "ownerId") !== uid && !isSuperAdmin) {
       return NextResponse.json({ ok: false, error: "Doar organizatorul poate anula evenimentul." }, { status: 403 });
     }
     if (firestoreString(event, "status") === "cancelled") {
