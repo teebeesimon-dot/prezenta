@@ -3,7 +3,6 @@ import { Poppins, Geist_Mono } from "next/font/google";
 import { AppHeader } from "@/components/AuthButton";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthProvider";
-import { PushNotificationsButton } from "@/components/PushNotificationsButton";
 import { env } from "@/lib/env";
 import "./globals.css";
 
@@ -89,7 +88,6 @@ export default function RootLayout({
         >
           <AuthProvider>
             <AppHeader />
-            <PushNotificationsButton />
             {children}
           </AuthProvider>
         </ThemeProvider>
