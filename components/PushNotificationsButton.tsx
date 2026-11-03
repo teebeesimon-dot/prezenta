@@ -3,16 +3,8 @@
 import { useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { getMessaging, getToken, isSupported, onMessage } from "firebase/messaging";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthProvider";
-
-function tokenDocumentId(uid: string, token: string) {
-  return crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)).then((hash) => {
-    const hex = Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
-    return `${uid}_${hex}`;
-  });
-}
 
 export function PushNotificationsButton() {
   const { user } = useAuth();
@@ -49,13 +41,22 @@ export function PushNotificationsButton() {
       const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
       if (!token) throw new Error("Nu am putut obtine tokenul pentru notificari.");
 
-      const id = await tokenDocumentId(currentUser.uid, token);
-      await setDoc(doc(db, "pushTokens", id), {
-        uid: currentUser.uid,
-        token,
-        platform: /iPhone|iPad|iPod/.test(navigator.userAgent) ? "ios-web" : "web",
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
+      const idToken = await currentUser.getIdToken();
+      const registrationResponse = await fetch("/api/push/register", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          token,
+          platform: /iPhone|iPad|iPod/.test(navigator.userAgent) ? "ios-web" : "web",
+        }),
+      });
+      const registrationResult = await registrationResponse.json() as { ok?: boolean; error?: string };
+      if (!registrationResponse.ok || !registrationResult.ok) {
+        throw new Error(registrationResult.error || "Nu am putut inregistra dispozitivul pentru notificari.");
+      }
 
       onMessage(messaging, (payload) => {
         const title = payload.notification?.title ?? "Prezenta";
