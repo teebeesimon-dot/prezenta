@@ -69,20 +69,24 @@ export async function notifyAttendanceChange(input: {
     if (promoted) {
       const promotedUid = firestoreString(promoted, "userId");
       const promotedName = firestoreString(promoted, "userName") || "Participant";
-      await notifyOnce(`promotion_${input.eventId}_${input.actorUid}_${promotedUid}_${cycle}`, [ownerId, promotedUid],
+      await notifyOnce(`promotion_owner_${input.eventId}_${input.actorUid}_${cycle}`, [ownerId],
+        `Participant inlocuit: ${title}`,
+        `Un participant s-a retras, iar ${promotedName} a fost promovat automat de pe lista de asteptare.`);
+      await notifyOnce(`promotion_user_${input.eventId}_${input.actorUid}_${promotedUid}_${cycle}`, [promotedUid],
         `Ai fost promovat: ${title}`,
-        promotedUid === ownerId
-          ? "Un participant s-a retras. Locul a fost ocupat automat."
-          : `Un participant s-a retras. ${promotedName}, ai acum un loc confirmat.`);
+        "S-a eliberat un loc si ai acum o prezenta confirmata.");
     } else {
       const responded = new Set(responses.map((doc) => firestoreString(doc, "userId")));
       const users = await queryFirestore("users");
       const eligible = users
         .map((doc) => firestoreString(doc, "uid") || doc.name.split("/").pop() || "")
         .filter((uid) => uid && uid !== ownerId && !responded.has(uid));
-      await notifyOnce(`open_${input.eventId}_${input.actorUid}_${cycle}`, [...eligible, ownerId],
+      await notifyOnce(`open_users_${input.eventId}_${input.actorUid}_${cycle}`, eligible,
         `S-a eliberat un loc: ${title}`,
         "Un loc este disponibil. Deschide evenimentul si confirma daca participi.");
+      await notifyOnce(`open_owner_${input.eventId}_${input.actorUid}_${cycle}`, [ownerId],
+        `Loc disponibil: ${title}`,
+        "Un participant s-a retras si nu exista persoane pe lista de asteptare. Poti organiza inlocuirea.");
     }
   }
 }
