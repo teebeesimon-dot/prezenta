@@ -75,7 +75,9 @@ export default function NotificationSettingsPanel({ eventId }: { eventId: string
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+    <details className="group relative shrink-0">
+      <summary className="cursor-pointer list-none whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground sm:text-sm [&::-webkit-details-marker]:hidden">Notificari</summary>
+      <section className="absolute right-0 top-full z-50 mt-2 max-h-[75vh] w-[min(92vw,680px)] overflow-y-auto rounded-2xl border border-border bg-card p-4 shadow-xl sm:p-5">
       <div>
         <h2 className="text-lg font-bold text-foreground">Mesaje notificari</h2>
         <p className="mt-1 text-sm text-muted-foreground">Editezi textele trimise automat pentru acest eveniment. Modificarile nu afecteaza celelalte evenimente.</p>
@@ -99,6 +101,7 @@ export default function NotificationSettingsPanel({ eventId }: { eventId: string
           </div>
         </div>
       )}
-    </section>
+      </section>
+    </details>
   );
 }
