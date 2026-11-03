@@ -263,15 +263,21 @@ export default function EventPageClient({ id }: EventPageClientProps) {
               Editează evenimentul
             </Link>
           )}
-          {canManage && !event.seriesId && (
+          {canManage && !event.seriesId && event.status !== "cancelled" && (
             <DeleteEventButton eventId={event.id} className="sm:flex-1" />
           )}
         </div>
       </section>
+      {event.status === "cancelled" && (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-center">
+          <p className="font-bold text-destructive">Eveniment anulat</p>
+          <p className="mt-1 text-sm text-muted-foreground">Acest eveniment a fost anulat de organizator. Inscrierile nu mai sunt disponibile.</p>
+        </div>
+      )}
       {event.seriesId && (
         <SeriesPanel seriesId={event.seriesId} currentViewedEventId={event.id} isOwner={canManage} />
       )}
-      <AttendanceSection
+      {event.status !== "cancelled" && <AttendanceSection
         eventId={event.id}
         maxParticipants={event.maxParticipants}
         pricePerHour={event.pricePerHour}
@@ -287,7 +293,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         view="response-confirmed"
         playerCards={playerCards}
         onOpenCard={(userId) => setSelectedCardUserId(userId)}
-      />
+      />}
       {selectedCard && (
         <PlayerCardModal
           card={selectedCard}
