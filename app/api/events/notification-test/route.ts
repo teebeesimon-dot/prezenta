@@ -57,9 +57,10 @@ export async function POST(request: NextRequest) {
       eventTime: firestoreString(event, "time"),
       location: firestoreString(event, "locationName") || firestoreString(event, "location"),
       capacity: String(Number(event.fields?.maxParticipants?.integerValue ?? 0)),
-      participantName: "Participant",
+      participantName: "Jucatorul care intra",
+      withdrawnName: "Jucatorul retras",
     };
-    const replace = (value: string) => value.replace(/\{(eventTitle|eventTime|location|capacity|participantName)\}/g, (match, name: string) => values[name] ?? match);
+    const replace = (value: string) => value.replace(/\{(eventTitle|eventTime|location|capacity|participantName|withdrawnName)\}/g, (match, name: string) => values[name] ?? match);
     const title = replace(saved?.title?.stringValue || message.title);
     const body = replace(saved?.body?.stringValue || message.body);
     const result = await sendPushToUser(uid, title, body);
