@@ -18,6 +18,7 @@ export function PushNotificationsButton() {
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [registered, setRegistered] = useState(false);
 
   async function enableNotifications() {
     setBusy(true);
@@ -62,9 +63,33 @@ export function PushNotificationsButton() {
         setMessage(`${title}: ${body}`);
       });
 
+      setRegistered(true);
       setMessage("Notificarile au fost activate pe acest dispozitiv.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Activarea notificarilor a esuat.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendTestNotification() {
+    setBusy(true);
+    setMessage("");
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("Sesiunea a expirat. Autentifica-te din nou.");
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch("/api/push/test", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const result = await response.json() as { ok?: boolean; sent?: number; total?: number; error?: string };
+      if (!response.ok || !result.ok) throw new Error(result.error || "Nu am putut trimite notificarea.");
+      setMessage(result.sent
+        ? `Notificare trimisa catre ${result.sent} din ${result.total} dispozitive.`
+        : "Nu exista inca tokenuri inregistrate pentru acest cont.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Testul notificarii a esuat.");
     } finally {
       setBusy(false);
     }
@@ -82,6 +107,7 @@ export function PushNotificationsButton() {
       >
         {busy ? "Se activeaza..." : "Activeaza notificarile"}
       </button>
+      {registered && <button type="button" onClick={sendTestNotification} disabled={busy} className="mt-2 w-full rounded-xl bg-primary px-3 py-2 text-left text-sm font-semibold text-primary-foreground disabled:opacity-60">Trimite notificare de test</button>}
       {message && <p role="status" className="mt-2 text-xs text-muted-foreground">{message}</p>}
     </div>
   );
