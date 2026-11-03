@@ -2,7 +2,7 @@ export type AttendanceStatus = "vin" | "poate" | "nu_vin";
 
 export type Sport = "football" | "tennis" | "padel";
 
-export type FootballFormat = "2x6" | "3x5" | "3x6";
+export type FootballFormat = "2x6" | "3x5" | "3x6" | "2x7";
 
 export type UserRole = "super_admin" | "organizer" | "user";
 
