@@ -19,7 +19,7 @@ import { DEFAULT_TEAM_COLORS, saveStageTeamColors, subscribeStageTeamColors, typ
 import { generateRandomTeams } from "@/lib/teams";
 import { generateBalancedTeams, type TeamBalanceMetrics } from "@/lib/team-balance";
 import { subscribePlayerCards, type PlayerCardData } from "@/lib/player-cards";
-import type { GeneratedTeams, ParticipantEntry } from "@/lib/types";
+import type { FootballFormat, GeneratedTeams, ParticipantEntry } from "@/lib/types";
 
 interface TeamGeneratorProps {
   eventId: string;
@@ -251,7 +251,7 @@ export default function TeamGenerator({
       const generated = generateRandomTeams(
         confirmed,
         (footballFormat ?? getDefaultFootballFormat(maxParticipants)) as
-          "2x6" | "3x5" | "3x6",
+          FootballFormat,
       );
 
       await updateDoc(doc(db, "events", eventId), {
@@ -278,7 +278,7 @@ export default function TeamGenerator({
     setError("");
     try {
       const format = (footballFormat ??
-        getDefaultFootballFormat(maxParticipants)) as "2x6" | "3x5" | "3x6";
+        getDefaultFootballFormat(maxParticipants)) as FootballFormat;
       const teamCount = format.startsWith("3") ? 3 : 2;
       const balanced = generateBalancedTeams(confirmed, cardsByUser, teamCount);
       await updateDoc(doc(db, "events", eventId), {
