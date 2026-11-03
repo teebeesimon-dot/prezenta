@@ -1,4 +1,5 @@
 import { doc, getDoc, setDoc, Timestamp, updateDoc } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 import { db } from "@/lib/firebase";
 import type { AttendanceStatus } from "@/lib/types";
 
@@ -16,6 +17,7 @@ export async function saveResponse(
   const docRef = doc(db, "responses", buildResponseId(eventId, userId));
   const existing = await getDoc(docRef);
   const now = Timestamp.now();
+  const previousStatus = existing.exists() ? (existing.data().status as AttendanceStatus) : null;
 
   if (existing.exists()) {
     const data = existing.data();
@@ -31,10 +33,9 @@ export async function saveResponse(
     }
 
     await updateDoc(docRef, updates);
-    return;
   }
 
-  await setDoc(docRef, {
+  else await setDoc(docRef, {
     eventId,
     userId,
     userName,
@@ -44,4 +45,18 @@ export async function saveResponse(
     createdAt: now,
     ...(status === "vin" ? { goingRegisteredAt: now } : {}),
   });
+
+  try {
+    const currentUser = getAuth().currentUser;
+    const token = await currentUser?.getIdToken();
+    if (token) {
+      await fetch("/api/events/attendance-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ eventId, previousStatus, currentStatus: status }),
+      });
+    }
+  } catch (error) {
+    console.error("Nu am putut procesa notificarile de prezenta:", error);
+  }
 }
