@@ -263,7 +263,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
               Editează evenimentul
             </Link>
           )}
-          {canManage && !event.seriesId && event.status !== "cancelled" && (
+          {canManage && event.status !== "cancelled" && (
             <DeleteEventButton eventId={event.id} className="sm:flex-1" />
           )}
         </div>
