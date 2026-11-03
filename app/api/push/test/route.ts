@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Trimiterea notificarii a esuat.";
-    const status = message.includes("Autentificare") ? 401 : 500;
+    const status = (message.includes("Autentificare") || message.includes("Sesiune")) ? 401 : 500;
     return NextResponse.json({ ok: false, error: message }, { status });
   }
 }
