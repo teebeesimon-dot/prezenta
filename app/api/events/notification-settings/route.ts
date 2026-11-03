@@ -14,7 +14,7 @@ const defaults: Templates = {
   reminder: { title: "Astazi: {eventTitle}", body: "Ora {eventTime}. Locatie: {location}. Te asteptam la eveniment!" },
   capacity: { title: "Locuri ocupate: {eventTitle}", body: "Toate cele {capacity} locuri pentru eveniment sunt ocupate." },
   vacancy: { title: "S-a eliberat un loc: {eventTitle}", body: "Un loc este disponibil. Deschide evenimentul si confirma daca participi." },
-  promotion: { title: "Ai fost promovat: {eventTitle}", body: "S-a eliberat un loc si ai acum o prezenta confirmata." },
+  promotion: { title: "Inlocuire confirmata: {eventTitle}", body: "{participantName} l-a inlocuit pe {withdrawnName}, care s-a retras." },
   cancellation: { title: "Eveniment anulat: {eventTitle}", body: "Organizatorul a anulat acest eveniment." },
 };
 
