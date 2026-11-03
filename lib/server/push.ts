@@ -60,6 +60,44 @@ function readString(fields: Record<string, { stringValue?: string }> | undefined
   return fields?.[key]?.stringValue ?? "";
 }
 
+
+export async function registerPushToken(uid: string, token: string, platform: "web" | "ios-web") {
+  if (!uid || !token || token.length > 4096) {
+    throw new Error("Datele dispozitivului pentru notificari nu sunt valide.");
+  }
+  const account = getServiceAccount();
+  const accessToken = await getAccessToken(account);
+  const digest = await import("node:crypto").then(({ createHash }) =>
+    createHash("sha256").update(token).digest("hex"),
+  );
+  const documentId = `${uid}_${digest}`;
+  const response = await fetch(
+    `https://firestore.googleapis.com/v1/projects/${account.project_id}/databases/(default)/documents/pushTokens/${documentId}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        fields: {
+          uid: { stringValue: uid },
+          token: { stringValue: token },
+          platform: { stringValue: platform },
+          updatedAt: { timestampValue: new Date().toISOString() },
+        },
+      }),
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) {
+    const detail = await response.text();
+    console.error("Firebase push token registration failed:", response.status, detail);
+    throw new Error("Nu am putut inregistra acest dispozitiv pentru notificari.");
+  }
+  return { registered: true };
+}
+
 export async function sendPushToUser(uid: string, title: string, body: string) {
   const account = getServiceAccount();
   const projectId = account.project_id;
