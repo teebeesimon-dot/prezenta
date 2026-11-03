@@ -5,6 +5,7 @@ import { Capacitor } from "@capacitor/core";
 import { getMessaging, getToken, isSupported, onMessage } from "firebase/messaging";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { useAuth } from "@/contexts/AuthProvider";
 
 function tokenDocumentId(uid: string, token: string) {
   return crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)).then((hash) => {
@@ -14,6 +15,7 @@ function tokenDocumentId(uid: string, token: string) {
 }
 
 export function PushNotificationsButton() {
+  const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -21,8 +23,8 @@ export function PushNotificationsButton() {
     setBusy(true);
     setMessage("");
     try {
-      const user = auth.currentUser;
-      if (!user) throw new Error("Trebuie sa fii autentificat.");
+      const currentUser = auth.currentUser;
+      if (!user || !currentUser) throw new Error("Trebuie sa fii autentificat.");
 
       if (Capacitor.isNativePlatform()) {
         throw new Error("Notificarile native Android/iOS necesita instalarea pluginului si sincronizarea proiectului mobil. Lucrez separat la aceasta integrare.");
@@ -46,9 +48,9 @@ export function PushNotificationsButton() {
       const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
       if (!token) throw new Error("Nu am putut obtine tokenul pentru notificari.");
 
-      const id = await tokenDocumentId(user.uid, token);
+      const id = await tokenDocumentId(currentUser.uid, token);
       await setDoc(doc(db, "pushTokens", id), {
-        uid: user.uid,
+        uid: currentUser.uid,
         token,
         platform: /iPhone|iPad|iPod/.test(navigator.userAgent) ? "ios-web" : "web",
         updatedAt: serverTimestamp(),
@@ -68,7 +70,7 @@ export function PushNotificationsButton() {
     }
   }
 
-  if (!auth.currentUser) return null;
+  if (!user) return null;
 
   return (
     <div className="border-t border-border px-3 py-3">
