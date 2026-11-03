@@ -277,7 +277,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
       {event.seriesId && (
         <SeriesPanel seriesId={event.seriesId} currentViewedEventId={event.id} isOwner={canManage} />
       )}
-      {event.status !== "cancelled" && <AttendanceSection
+      <AttendanceSection
         eventId={event.id}
         maxParticipants={event.maxParticipants}
         pricePerHour={event.pricePerHour}
@@ -286,6 +286,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         eventDate={event.date}
         eventTime={event.time}
         canManage={canManage}
+        eventCancelled={event.status === "cancelled"}
         paymentModel={event.paymentModel}
         registrationLeadValue={event.registrationLeadValue}
         registrationLeadUnit={event.registrationLeadUnit}
@@ -293,7 +294,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         view="response-confirmed"
         playerCards={playerCards}
         onOpenCard={(userId) => setSelectedCardUserId(userId)}
-      />}
+      />
       {selectedCard && (
         <PlayerCardModal
           card={selectedCard}
