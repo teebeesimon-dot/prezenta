@@ -15,15 +15,10 @@ importScripts("https://www.gstatic.com/firebasejs/12.15.0/firebase-app-compat.js
 importScripts("https://www.gstatic.com/firebasejs/12.15.0/firebase-messaging-compat.js");
 firebase.initializeApp(${JSON.stringify(config)});
 const messaging = firebase.messaging();
-messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || "Prezenta";
-  const options = {
-    body: payload.notification?.body || "Ai o notificare noua.",
-    icon: "/icon-192.png",
-    data: payload.data || {},
-  };
-  self.registration.showNotification(title, options);
-});
+// FCM automatically displays messages that contain a notification payload
+// while the page is in the background. Calling showNotification() here as
+// well creates a duplicate notification on supported browsers. Keep this
+// worker focused on notification clicks; do not display the same payload twice.
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   event.waitUntil(clients.openWindow("/"));
