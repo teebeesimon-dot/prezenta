@@ -71,6 +71,21 @@ service cloud.firestore {
       return request.resource.data.role == resource.data.role;
     }
 
+    match /pushTokens/{tokenId} {
+      allow get, list: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'token', 'platform', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['uid', 'token', 'platform'])
+        && request.resource.data.token is string
+        && request.resource.data.platform in ['web', 'ios-web'];
+      allow update: if isAuthenticated()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['token', 'platform', 'updatedAt']);
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
     match /users/{userId} {
       allow get: if isAuthenticated() && (request.auth.uid == userId || canReadUserProfiles());
       allow list: if canReadUserProfiles();
