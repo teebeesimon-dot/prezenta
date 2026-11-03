@@ -7,13 +7,13 @@ import { getEventLocationName } from "@/lib/location";
 import { formatDuration, formatLei, computeTotalCost } from "@/lib/pricing";
 import type { Event } from "@/lib/types";
 
-export default function EventDashboardShell({ event, active = "overview", children }: { event: Event; active?: "overview" | "group" | "confirmed" | "teams" | "matches"; children: React.ReactNode }) {
+export default function EventDashboardShell({ event, active = "overview", toolbarAction, children }: { event: Event; active?: "overview" | "group" | "confirmed" | "teams" | "matches"; toolbarAction?: React.ReactNode; children: React.ReactNode }) {
   const links = [{ id: "overview", label: "Eveniment", href: `/event/${event.id}` }, { id: "group", label: "Grup", href: `/event/${event.id}/group` }, ...(event.sport === "football" ? [{ id: "teams", label: "Echipe", href: `/event/${event.id}/teams` }, { id: "matches", label: "Meciuri", href: `/event/${event.id}/matches` }, ] : [])];
   return (
     <main className="mx-auto w-full max-w-[1480px] px-3 py-5 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-foreground transition hover:text-primary"><span aria-hidden="true">←</span> Înapoi la evenimente</Link>
-        <nav aria-label="Secțiuni eveniment" className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1">{links.map((link) => <Link key={link.id} href={link.href} aria-current={active === link.id ? "page" : undefined} className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition sm:text-sm ${active === link.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>{link.label}</Link>)}</nav>
+        <div className="flex max-w-full items-center gap-1 rounded-xl border border-border bg-card p-1"><nav aria-label="Secțiuni eveniment" className="flex min-w-0 max-w-full gap-1 overflow-x-auto">{links.map((link) => <Link key={link.id} href={link.href} aria-current={active === link.id ? "page" : undefined} className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition sm:text-sm ${active === link.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>{link.label}</Link>)}</nav>{toolbarAction}</div>
       </div>
       <div className="mt-4 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 flex flex-col gap-4">{children}</div>
