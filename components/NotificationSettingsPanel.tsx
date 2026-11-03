@@ -79,6 +79,7 @@ export default function NotificationSettingsPanel({ eventId }: { eventId: string
       <div>
         <h2 className="text-lg font-bold text-foreground">Mesaje notificari</h2>
         <p className="mt-1 text-sm text-muted-foreground">Editezi textele trimise automat pentru acest eveniment. Modificarile nu afecteaza celelalte evenimente.</p>
+        <p className="mt-2 text-xs text-muted-foreground">Variabile disponibile: {`{eventTitle}`}, {`{eventTime}`}, {`{location}`}, {`{capacity}`}, {`{participantName}`} si {`{withdrawnName}`}. La promovare, participantName este jucatorul care intra, iar withdrawnName este jucatorul care s-a retras.</p>
       </div>
       {loading ? <p className="mt-4 text-sm text-muted-foreground">Se incarca mesajele...</p> : (
         <div className="mt-4 space-y-4">
