@@ -192,7 +192,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
   const selectedCard = selectedCardUserId ? playerCards[selectedCardUserId] : null;
 
   return (
-    <EventDashboardShell event={event}>
+    <EventDashboardShell event={event} toolbarAction={canManage ? <NotificationSettingsPanel eventId={event.id} /> : undefined}>
       <section className="event-panel overflow-hidden">
         <div className="grid gap-0 lg:grid-cols-[300px_minmax(0,1fr)]">
           <EventHeroImage
@@ -276,7 +276,6 @@ export default function EventPageClient({ id }: EventPageClientProps) {
           <p className="mt-1 text-sm text-muted-foreground">Acest eveniment a fost anulat de organizator. Inscrierile nu mai sunt disponibile.</p>
         </div>
       )}
-      {canManage && <NotificationSettingsPanel eventId={event.id} />}
       {canManage && <PreviewNotificationTester eventId={event.id} />}
       {event.seriesId && (
         <SeriesPanel seriesId={event.seriesId} currentViewedEventId={event.id} isOwner={canManage} />
