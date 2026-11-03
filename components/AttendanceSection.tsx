@@ -563,7 +563,7 @@ export default function AttendanceSection({
             </button>
             <button
               type="button"
-              disabled={submitting !== null || !registrationOpen}
+              disabled={submitting !== null || !registrationOpen || eventCancelled}
               onClick={() => handleResponse("poate")}
               className={`rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
                 currentStatus === "poate"
@@ -576,7 +576,7 @@ export default function AttendanceSection({
             </button>
             <button
               type="button"
-              disabled={submitting !== null || !registrationOpen}
+              disabled={submitting !== null || !registrationOpen || eventCancelled}
               onClick={() => handleResponse("nu_vin")}
               className={`rounded-xl px-3 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 ${
                 currentStatus === "nu_vin"
