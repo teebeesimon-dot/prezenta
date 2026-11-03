@@ -82,6 +82,7 @@ export interface Event {
   maxParticipants: number;
   footballFormat?: FootballFormat;
   ownerId: string;
+  status?: "active" | "cancelled";
   seriesId?: string;
   seriesIndex?: number;
   seriesTotal?: number;
