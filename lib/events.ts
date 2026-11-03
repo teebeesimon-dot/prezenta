@@ -47,6 +47,7 @@ export function mapFirestoreEvent(
     maxParticipants: (data.maxParticipants as number) ?? 0,
     footballFormat: data.footballFormat as Event["footballFormat"],
     ownerId: (data.ownerId as string) ?? "",
+    status: (data.status as Event["status"]) ?? "active",
     seriesId: (data.seriesId as string) ?? undefined,
     seriesIndex: (data.seriesIndex as number) ?? undefined,
     seriesTotal: (data.seriesTotal as number) ?? undefined,

@@ -24,6 +24,8 @@ export const env = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID?.trim() ?? "",
   },
 
+  firebaseVapidKey: optional(process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY),
+
   googleMapsApiKey: optional(process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY),
 } as const;
 

@@ -10,6 +10,8 @@ import EventHeroImage from "@/components/EventHeroImage";
 import EventWeatherPanel from "@/components/EventWeatherPanel";
 import OpenInGoogleMapsButton from "@/components/OpenInGoogleMapsButton";
 import PlayerCardModal from "@/components/PlayerCardModal";
+import PreviewNotificationTester from "@/components/PreviewNotificationTester";
+import NotificationSettingsPanel from "@/components/NotificationSettingsPanel";
 import SeriesPanel from "@/components/SeriesPanel";
 import ShareOnWhatsAppButton from "@/components/ShareOnWhatsAppButton";
 import { useAuth } from "@/contexts/AuthProvider";
@@ -190,7 +192,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
   const selectedCard = selectedCardUserId ? playerCards[selectedCardUserId] : null;
 
   return (
-    <EventDashboardShell event={event}>
+    <EventDashboardShell event={event} showNotifications={canManage}>
       <section className="event-panel overflow-hidden">
         <div className="grid gap-0 lg:grid-cols-[300px_minmax(0,1fr)]">
           <EventHeroImage
@@ -263,11 +265,18 @@ export default function EventPageClient({ id }: EventPageClientProps) {
               Editează evenimentul
             </Link>
           )}
-          {canManage && !event.seriesId && (
+          {canManage && event.status !== "cancelled" && (
             <DeleteEventButton eventId={event.id} className="sm:flex-1" />
           )}
         </div>
       </section>
+      {event.status === "cancelled" && (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-center">
+          <p className="font-bold text-destructive">Eveniment anulat</p>
+          <p className="mt-1 text-sm text-muted-foreground">Acest eveniment a fost anulat de organizator. Inscrierile nu mai sunt disponibile.</p>
+        </div>
+      )}
+      {canManage && <PreviewNotificationTester eventId={event.id} />}
       {event.seriesId && (
         <SeriesPanel seriesId={event.seriesId} currentViewedEventId={event.id} isOwner={canManage} />
       )}
@@ -280,6 +289,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
         eventDate={event.date}
         eventTime={event.time}
         canManage={canManage}
+        eventCancelled={event.status === "cancelled"}
         paymentModel={event.paymentModel}
         registrationLeadValue={event.registrationLeadValue}
         registrationLeadUnit={event.registrationLeadUnit}

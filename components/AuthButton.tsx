@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthProvider";
 import { ROLE_LABELS } from "@/lib/roles";
 import { LogoMark } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { PushNotificationsButton } from "@/components/PushNotificationsButton";
 
 function useIsEmbeddedInIframe() {
   const [isEmbedded, setIsEmbedded] = useState(false);
@@ -152,6 +153,7 @@ export default function AuthButton() {
                 Admin
               </Link>
             )}
+            <PushNotificationsButton />
             <button
               type="button"
               role="menuitem"

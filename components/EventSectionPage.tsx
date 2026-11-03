@@ -3,6 +3,7 @@
 import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import AttendanceSection from "@/components/AttendanceSection";
+import NotificationSettingsPanel from "@/components/NotificationSettingsPanel";
 import EventDashboardShell from "@/components/EventDashboardShell";
 import MembersGroup from "@/components/MembersGroup";
 import FootballMatchesPanel from "@/components/FootballMatchesPanel";
@@ -14,13 +15,14 @@ import { db } from "@/lib/firebase";
 import { resolveGroup } from "@/lib/members";
 import type { Event } from "@/lib/types";
 
-export type EventSection = "group" | "confirmed" | "teams" | "matches";
+export type EventSection = "group" | "confirmed" | "teams" | "matches" | "notifications";
 
 const titles: Record<EventSection, string> = {
   group: "Grup",
   confirmed: "Confirmați",
   teams: "Echipe",
   matches: "Meciuri",
+  notifications: "Notificari",
 };
 
 export default function EventSectionPage({
@@ -30,7 +32,7 @@ export default function EventSectionPage({
   id: string;
   section: EventSection;
 }) {
-  const { user, loading } = useAuth();
+  const { user, loading, isSuperAdmin } = useAuth();
   const [event, setEvent] = useState<Event | null>(null);
   const [loaded, setLoaded] = useState(false);
   const stageNumber = useEventStage(event);
@@ -73,15 +75,16 @@ export default function EventSectionPage({
       </div>
     );
 
-  const canManage = user.uid === event.ownerId;
+  const canManage = user.uid === event.ownerId || isSuperAdmin;
   const group = resolveGroup(event);
 
   return (
-    <EventDashboardShell event={event} active={section}>
+    <EventDashboardShell event={event} active={section} showNotifications={canManage}>
       <header className="event-panel p-5 sm:p-6">
         <p className="text-sm font-semibold text-primary">{event.title}</p>
         <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">{titles[section]}</h1>
       </header>
+      {section === "notifications" && canManage && <NotificationSettingsPanel eventId={event.id} />}
       {section === "group" && (
         <MembersGroup
           eventId={event.id}
