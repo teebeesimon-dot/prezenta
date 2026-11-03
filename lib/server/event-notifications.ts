@@ -105,7 +105,7 @@ export async function sendDueEventReminders(now = new Date()) {
   }).formatToParts(now);
   const part = (type: string) => local.find((item) => item.type === type)?.value ?? "";
   const today = `${part("year")}-${part("month")}-${part("day")}`;
-  if (part("hour") !== "10") return { processed: 0 };
+  if (part("hour") !== "10" && part("hour") !== "11") return { processed: 0 };
 
   const events = await queryFirestore("events");
   let processed = 0;
