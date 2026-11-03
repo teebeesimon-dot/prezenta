@@ -192,7 +192,7 @@ export default function EventPageClient({ id }: EventPageClientProps) {
   const selectedCard = selectedCardUserId ? playerCards[selectedCardUserId] : null;
 
   return (
-    <EventDashboardShell event={event} toolbarAction={canManage ? <NotificationSettingsPanel eventId={event.id} /> : undefined}>
+    <EventDashboardShell event={event} showNotifications={canManage}>
       <section className="event-panel overflow-hidden">
         <div className="grid gap-0 lg:grid-cols-[300px_minmax(0,1fr)]">
           <EventHeroImage
