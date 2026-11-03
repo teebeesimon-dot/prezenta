@@ -50,7 +50,19 @@ export async function POST(request: NextRequest) {
     }
 
     const message = messages[payload.type as keyof typeof messages];
-    const result = await sendPushToUser(uid, message.title, `${message.body} Eveniment: ${firestoreString(event, "title") || "Eveniment"}.`);
+    const saved = event.fields?.notificationTemplates?.mapValue?.fields?.[payload.type]?.mapValue?.fields;
+    const eventTitle = firestoreString(event, "title") || "Eveniment";
+    const values: Record<string, string> = {
+      eventTitle,
+      eventTime: firestoreString(event, "time"),
+      location: firestoreString(event, "locationName") || firestoreString(event, "location"),
+      capacity: String(Number(event.fields?.maxParticipants?.integerValue ?? 0)),
+      participantName: "Participant",
+    };
+    const replace = (value: string) => value.replace(/\{(eventTitle|eventTime|location|capacity|participantName)\}/g, (match, name: string) => values[name] ?? match);
+    const title = replace(saved?.title?.stringValue || message.title);
+    const body = replace(saved?.body?.stringValue || message.body);
+    const result = await sendPushToUser(uid, title, body);
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Notificarea de test nu a putut fi trimisa.";
