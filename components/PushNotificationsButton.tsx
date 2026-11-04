@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { Capacitor } from "@capacitor/core";
-import { getMessaging, getToken, isSupported, onMessage } from "firebase/messaging";
+import { getMessaging, getToken, isSupported } from "firebase/messaging";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthProvider";
+import { registerPushToken } from "@/lib/push-client";
 
 export function PushNotificationsButton() {
-  const { user } = useAuth();
+  const { user, nativePushEnabled, nativePushStatus, enableNativePushNotifications } = useAuth();
+  const nativeAndroid = Capacitor.getPlatform() === "android";
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [registered, setRegistered] = useState(false);
@@ -19,8 +21,14 @@ export function PushNotificationsButton() {
       const currentUser = auth.currentUser;
       if (!user || !currentUser) throw new Error("Trebuie sa fii autentificat.");
 
+      if (Capacitor.getPlatform() === "android") {
+        await enableNativePushNotifications();
+        setRegistered(true);
+        setMessage("Notificarile native sunt activate pe acest dispozitiv.");
+        return;
+      }
       if (Capacitor.isNativePlatform()) {
-        throw new Error("Notificarile native Android/iOS necesita instalarea pluginului si sincronizarea proiectului mobil. Lucrez separat la aceasta integrare.");
+        throw new Error("Notificarile native sunt configurate momentan pentru Android.");
       }
 
       if (!("Notification" in window) || !("serviceWorker" in navigator)) {
@@ -48,28 +56,7 @@ export function PushNotificationsButton() {
       const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
       if (!token) throw new Error("Nu am putut obtine tokenul pentru notificari.");
 
-      const idToken = await currentUser.getIdToken();
-      const registrationResponse = await fetch("/api/push/register", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          token,
-          platform: /iPhone|iPad|iPod/.test(navigator.userAgent) ? "ios-web" : "web",
-        }),
-      });
-      const registrationResult = await registrationResponse.json() as { ok?: boolean; error?: string };
-      if (!registrationResponse.ok || !registrationResult.ok) {
-        throw new Error(registrationResult.error || "Nu am putut inregistra dispozitivul pentru notificari.");
-      }
-
-      onMessage(messaging, (payload) => {
-        const title = payload.notification?.title ?? "Prezenta";
-        const body = payload.notification?.body ?? "Ai o notificare noua.";
-        setMessage(`${title}: ${body}`);
-      });
+      await registerPushToken(token, /iPhone|iPad|iPod/.test(navigator.userAgent) ? "ios-web" : "web");
 
       setRegistered(true);
       setMessage("Notificarile au fost activate pe acest dispozitiv.");
@@ -87,9 +74,16 @@ export function PushNotificationsButton() {
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error("Sesiunea a expirat. Autentifica-te din nou.");
       const idToken = await currentUser.getIdToken();
+      const platform = nativeAndroid
+        ? "android"
+        : /iPhone|iPad|iPod/.test(navigator.userAgent) ? "ios-web" : "web";
       const response = await fetch("/api/push/test", {
         method: "POST",
-        headers: { Authorization: `Bearer ${idToken}` },
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ platform }),
       });
       const result = await response.json() as { ok?: boolean; sent?: number; total?: number; error?: string };
       if (!response.ok || !result.ok) throw new Error(result.error || "Nu am putut trimite notificarea.");
@@ -104,6 +98,7 @@ export function PushNotificationsButton() {
   }
 
   if (!user) return null;
+  const pushReady = nativeAndroid ? nativePushEnabled : registered;
 
   return (
     <div className="border-t border-border px-3 py-3">
@@ -113,10 +108,10 @@ export function PushNotificationsButton() {
         disabled={busy}
         className="w-full rounded-xl border border-border px-3 py-2 text-left text-sm font-medium text-foreground transition hover:bg-muted disabled:opacity-60"
       >
-        {busy ? "Se activeaza..." : "Activeaza notificarile"}
+        {busy ? "Se activeaza..." : pushReady ? "Notificarile sunt active" : "Activeaza notificarile"}
       </button>
-      {registered && <button type="button" onClick={sendTestNotification} disabled={busy} className="mt-2 w-full rounded-xl bg-primary px-3 py-2 text-left text-sm font-semibold text-primary-foreground disabled:opacity-60">Trimite notificare de test</button>}
-      {message && <p role="status" className="mt-2 text-xs text-muted-foreground">{message}</p>}
+      {pushReady && <button type="button" onClick={sendTestNotification} disabled={busy} className="mt-2 w-full rounded-xl bg-primary px-3 py-2 text-left text-sm font-semibold text-primary-foreground disabled:opacity-60">Trimite notificare de test</button>}
+      {(message || (nativeAndroid && nativePushStatus)) && <p role="status" className="mt-2 text-xs text-muted-foreground">{message || nativePushStatus}</p>}
     </div>
   );
 }

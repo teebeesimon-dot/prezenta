@@ -1,6 +1,6 @@
 "use client";
 
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { SocialLogin } from "@capgo/capacitor-social-login";
 import {
   getRedirectResult,
@@ -19,6 +19,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { auth, db } from "@/lib/firebase";
@@ -26,6 +27,14 @@ import { canCreateEvents, isSuperAdmin } from "@/lib/roles";
 import type { UserProfile, UserRole } from "@/lib/types";
 import { saveUserProfile } from "@/lib/user-service";
 import { mapUserProfile } from "@/lib/users";
+import { registerPushToken, unregisterPushToken } from "@/lib/push-client";
+
+type PushMessage = { title: string; body: string; id: number };
+type NativeTokenWaiter = {
+  resolve: (token: string) => void;
+  reject: (error: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+};
 
 const GOOGLE_WEB_CLIENT_ID =
   "1068418224143-2j73duinolrees1n8o8i5ve3vnpqufer.apps.googleusercontent.com";
@@ -38,6 +47,11 @@ interface AuthContextValue {
   authError: string | null;
   canCreateEvents: boolean;
   isSuperAdmin: boolean;
+  nativePushEnabled: boolean;
+  nativePushStatus: string | null;
+  pushMessage: PushMessage | null;
+  enableNativePushNotifications: () => Promise<void>;
+  clearPushMessage: () => void;
   signInWithGoogle: () => Promise<void>;
   signOutUser: () => Promise<void>;
 }
@@ -60,6 +74,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [nativePushEnabled, setNativePushEnabled] = useState(false);
+  const [nativePushStatus, setNativePushStatus] = useState<string | null>(null);
+  const [pushMessage, setPushMessage] = useState<PushMessage | null>(null);
+  const nativeTokenRef = useRef<string | null>(null);
+  const nativeTokenSyncRef = useRef<{ token: string; promise: Promise<void> } | null>(null);
+  const nativeListenerReadyRef = useRef<Promise<void> | null>(null);
+  const nativeTokenWaiterRef = useRef<NativeTokenWaiter | null>(null);
 
   useEffect(() => {
     // Complete any sign-in that used the redirect fallback.
@@ -115,6 +136,209 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => unsubscribe();
   }, [user]);
+
+  useEffect(() => {
+    if (Capacitor.getPlatform() !== "android" || !user) {
+      setNativePushEnabled(false);
+      return;
+    }
+
+    let active = true;
+    const listeners: PluginListenerHandle[] = [];
+    setNativePushEnabled(false);
+    setNativePushStatus(null);
+
+    const setup = async () => {
+      const { PushNotifications } = await import("@capacitor/push-notifications");
+      if (!active) return;
+
+      const registrationListener = await PushNotifications.addListener(
+        "registration",
+        ({ value }) => {
+          nativeTokenRef.current = value;
+          const waiter = nativeTokenWaiterRef.current;
+          if (waiter) {
+            clearTimeout(waiter.timeout);
+            nativeTokenWaiterRef.current = null;
+            waiter.resolve(value);
+            return;
+          }
+
+          if (!auth.currentUser) return;
+          const sync = registerPushToken(value, "android");
+          nativeTokenSyncRef.current = { token: value, promise: sync };
+          void sync
+            .then(() => {
+              if (active) {
+                setNativePushEnabled(true);
+                setNativePushStatus("Tokenul FCM este inregistrat pentru contul autentificat.");
+              }
+            })
+            .catch((error: unknown) => {
+              console.error("Native push token refresh registration failed:", error);
+              if (active) {
+                setNativePushStatus(
+                  error instanceof Error ? error.message : "Nu am putut salva tokenul FCM.",
+                );
+              }
+            });
+        },
+      );
+      if (!active) {
+        await registrationListener.remove();
+        return;
+      }
+      listeners.push(registrationListener);
+
+      const errorListener = await PushNotifications.addListener(
+        "registrationError",
+        ({ error }) => {
+          const waiter = nativeTokenWaiterRef.current;
+          const registrationError = new Error(error || "FCM nu a putut inregistra dispozitivul.");
+          if (waiter) {
+            clearTimeout(waiter.timeout);
+            nativeTokenWaiterRef.current = null;
+            waiter.reject(registrationError);
+          } else if (active) {
+            setNativePushStatus(registrationError.message);
+          }
+        },
+      );
+      if (!active) {
+        await errorListener.remove();
+        return;
+      }
+      listeners.push(errorListener);
+
+      const actionListener = await PushNotifications.addListener(
+        "pushNotificationActionPerformed",
+        ({ notification }) => {
+          const url = notification.data?.url ?? notification.link;
+          if (typeof url === "string" && url.startsWith("/") && !url.startsWith("//")) {
+            window.location.assign(url);
+          }
+        },
+      );
+      if (!active) {
+        await actionListener.remove();
+        return;
+      }
+      listeners.push(actionListener);
+
+      const permission = await PushNotifications.checkPermissions();
+      if (active && permission.receive === "granted") {
+        await PushNotifications.register();
+      }
+    };
+
+    const setupPromise = setup();
+    nativeListenerReadyRef.current = setupPromise;
+    void setupPromise.catch((error: unknown) => {
+      console.error("Native push listener setup failed:", error);
+      if (active) {
+        setNativePushStatus(
+          error instanceof Error ? error.message : "Nu am putut porni notificarile native.",
+        );
+      }
+    });
+
+    return () => {
+      active = false;
+      if (nativeListenerReadyRef.current === setupPromise) {
+        nativeListenerReadyRef.current = null;
+      }
+      const waiter = nativeTokenWaiterRef.current;
+      if (waiter) {
+        clearTimeout(waiter.timeout);
+        nativeTokenWaiterRef.current = null;
+        waiter.reject(new Error("Inregistrarea notificarilor a fost intrerupta."));
+      }
+      void Promise.all(listeners.map((listener) => listener.remove())).catch((error) => {
+        console.error("Native push listener cleanup failed:", error);
+      });
+    };
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user || Capacitor.isNativePlatform()) return;
+    let active = true;
+    let removeMessageListener: (() => void) | null = null;
+
+    void (async () => {
+      const { getMessaging, isSupported, onMessage } = await import("firebase/messaging");
+      if (!(await isSupported()) || !active) return;
+      removeMessageListener = onMessage(getMessaging(), (payload) => {
+        if (!active) return;
+        setPushMessage({
+          title: payload.notification?.title ?? "Prezenta",
+          body: payload.notification?.body ?? "Ai o notificare noua.",
+          id: Date.now(),
+        });
+      });
+    })().catch((error: unknown) => {
+      console.warn("Web push foreground listener could not be initialized:", error);
+    });
+
+    return () => {
+      active = false;
+      removeMessageListener?.();
+    };
+  }, [user?.uid]);
+
+  const enableNativePushNotifications = useCallback(async () => {
+    if (Capacitor.getPlatform() !== "android") {
+      throw new Error("Notificarile native sunt configurate aici pentru Android.");
+    }
+    if (!auth.currentUser) throw new Error("Trebuie sa fii autentificat.");
+
+    const { PushNotifications } = await import("@capacitor/push-notifications");
+    await nativeListenerReadyRef.current;
+
+    const currentToken = nativeTokenRef.current;
+    if (currentToken && nativeTokenSyncRef.current?.token === currentToken) {
+      await nativeTokenSyncRef.current.promise;
+      setNativePushEnabled(true);
+      setNativePushStatus("Tokenul FCM este inregistrat pentru contul autentificat.");
+      return;
+    }
+
+    let permission = await PushNotifications.checkPermissions();
+    if (permission.receive !== "granted") {
+      permission = await PushNotifications.requestPermissions();
+    }
+    if (permission.receive !== "granted") {
+      throw new Error("Permisiunea pentru notificari nu a fost acordata.");
+    }
+
+    const tokenPromise = new Promise<string>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        nativeTokenWaiterRef.current = null;
+        reject(new Error("FCM nu a returnat tokenul dispozitivului. Verifica Google Play Services si incearca din nou."));
+      }, 20000);
+      nativeTokenWaiterRef.current = { resolve, reject, timeout };
+    });
+
+    try {
+      await PushNotifications.register();
+      const token = await tokenPromise;
+      const sync = registerPushToken(token, "android");
+      nativeTokenSyncRef.current = { token, promise: sync };
+      await sync;
+      setNativePushEnabled(true);
+      setNativePushStatus("Tokenul FCM este inregistrat pentru contul autentificat.");
+    } catch (error) {
+      const waiter = nativeTokenWaiterRef.current;
+      if (waiter) {
+        clearTimeout(waiter.timeout);
+        nativeTokenWaiterRef.current = null;
+      }
+      throw error;
+    }
+  }, []);
+
+  const clearPushMessage = useCallback(() => {
+    setPushMessage(null);
+  }, []);
 
   const signInWithGoogle = useCallback(async () => {
     setAuthError(null);
@@ -187,6 +411,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOutUser = useCallback(async () => {
+    if (Capacitor.getPlatform() === "android") {
+      const token = nativeTokenRef.current;
+      if (token && auth.currentUser) {
+        try {
+          await unregisterPushToken(token, "android");
+        } catch (error) {
+          console.error("Native push token removal on sign-out failed:", error);
+        }
+      }
+      try {
+        const { PushNotifications } = await import("@capacitor/push-notifications");
+        await PushNotifications.unregister();
+      } catch (error) {
+        console.error("Native push unregister failed:", error);
+      }
+      nativeTokenRef.current = null;
+      nativeTokenSyncRef.current = null;
+      setNativePushEnabled(false);
+    }
     await signOut(auth);
   }, []);
 
@@ -201,10 +444,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authError,
       canCreateEvents: canCreateEvents(role),
       isSuperAdmin: isSuperAdmin(role),
+      nativePushEnabled,
+      nativePushStatus,
+      pushMessage,
+      enableNativePushNotifications,
+      clearPushMessage,
       signInWithGoogle,
       signOutUser,
     }),
-    [user, profile, role, loading, authError, signInWithGoogle, signOutUser]
+    [
+      user,
+      profile,
+      role,
+      loading,
+      authError,
+      nativePushEnabled,
+      nativePushStatus,
+      pushMessage,
+      enableNativePushNotifications,
+      clearPushMessage,
+      signInWithGoogle,
+      signOutUser,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

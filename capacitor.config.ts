@@ -8,6 +8,19 @@ const config: CapacitorConfig = {
     url: 'https://www.prezenta.com.ro',
     cleartext: false,
   },
+  plugins: {
+    PushNotifications: {
+      presentationOptions: ['alert'],
+    },
+    SocialLogin: {
+      providers: {
+        google: true,
+        facebook: false,
+        apple: true,
+        twitter: false,
+      },
+    },
+  },
 };
 
 export default config;

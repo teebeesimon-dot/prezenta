@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "1068418224143-4vdsf7bqn0tajuclh82lgkktarhu2b0b.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "ro.com.prezenta",
+            "certificate_hash": "4f0159995b33c67f0704add4bafb9716c1750984"
+          }
+        },
+        {
+          "client_id": "1068418224143-kuuas0cl9gprn29bipec5v20bsjp7etm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "ro.com.prezenta",
+            "certificate_hash": "877bc0f68b49dda4229f0f202076096633e0df8d"
+          }
+        },
+        {
           "client_id": "1068418224143-2j73duinolrees1n8o8i5ve3vnpqufer.apps.googleusercontent.com",
           "client_type": 3
         }
