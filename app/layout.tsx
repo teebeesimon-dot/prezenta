@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins, Geist_Mono } from "next/font/google";
 import { AppHeader } from "@/components/AuthButton";
+import { PushNotificationToast } from "@/components/PushNotificationToast";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthProvider";
 import { env } from "@/lib/env";
@@ -88,6 +89,7 @@ export default function RootLayout({
         >
           <AuthProvider>
             <AppHeader />
+            <PushNotificationToast />
             {children}
           </AuthProvider>
         </ThemeProvider>

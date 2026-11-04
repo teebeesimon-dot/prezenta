@@ -1,4 +1,5 @@
-import { createSign } from "node:crypto";
+import { createHash, createSign } from "node:crypto";
+import type { PushPlatform } from "@/lib/push-types";
 
 type ServiceAccount = {
   project_id: string;
@@ -61,18 +62,75 @@ function readString(fields: Record<string, { stringValue?: string }> | undefined
 }
 
 
-export async function registerPushToken(uid: string, token: string, platform: "web" | "ios-web") {
+type PushTokenDocument = {
+  name: string;
+  fields?: Record<string, { stringValue?: string }>;
+};
+
+async function queryPushTokens(
+  projectId: string,
+  accessToken: string,
+  fieldPath: "uid" | "token",
+  value: string,
+) {
+  const response = await fetch(
+    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        structuredQuery: {
+          from: [{ collectionId: "pushTokens" }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath },
+              op: "EQUAL",
+              value: { stringValue: value },
+            },
+          },
+        },
+      }),
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) throw new Error("Nu am putut verifica dispozitivele inregistrate.");
+  const rows = await response.json() as Array<{ document?: PushTokenDocument }>;
+  return rows.flatMap((row) => row.document ? [row.document] : []);
+}
+
+async function deletePushTokenDocument(name: string, accessToken: string) {
+  const response = await fetch(`https://firestore.googleapis.com/v1/${name}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    cache: "no-store",
+  });
+  if (!response.ok && response.status !== 404) {
+    throw new Error("Nu am putut elimina o inregistrare veche a dispozitivului.");
+  }
+}
+
+function tokenDigest(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+export async function registerPushToken(uid: string, token: string, platform: PushPlatform) {
   if (!uid || !token || token.length > 4096) {
     throw new Error("Datele dispozitivului pentru notificari nu sunt valide.");
   }
   const account = getServiceAccount();
   const accessToken = await getAccessToken(account);
-  const digest = await import("node:crypto").then(({ createHash }) =>
-    createHash("sha256").update(token).digest("hex"),
-  );
-  const documentId = `${uid}_${digest}`;
+  const documentId = tokenDigest(token);
+  const documentPath = `projects/${account.project_id}/databases/(default)/documents/pushTokens/${documentId}`;
+  const existingCopies = await queryPushTokens(account.project_id, accessToken, "token", token);
+  await Promise.all(existingCopies
+    .filter((document) => document.name !== documentPath)
+    .map((document) => deletePushTokenDocument(document.name, accessToken)));
+
   const response = await fetch(
-    `https://firestore.googleapis.com/v1/projects/${account.project_id}/databases/(default)/documents/pushTokens/${documentId}`,
+    `https://firestore.googleapis.com/v1/${documentPath}`,
     {
       method: "PATCH",
       headers: {
@@ -98,43 +156,41 @@ export async function registerPushToken(uid: string, token: string, platform: "w
   return { registered: true };
 }
 
-export async function sendPushToUser(uid: string, title: string, body: string) {
+export async function unregisterPushToken(uid: string, token: string) {
+  if (!uid || !token || token.length > 4096) {
+    throw new Error("Datele dispozitivului pentru notificari nu sunt valide.");
+  }
+  const account = getServiceAccount();
+  const accessToken = await getAccessToken(account);
+  const documents = await queryPushTokens(account.project_id, accessToken, "token", token);
+  const ownedDocuments = documents.filter((document) =>
+    readString(document.fields, "uid") === uid,
+  );
+  await Promise.all(ownedDocuments.map((document) =>
+    deletePushTokenDocument(document.name, accessToken),
+  ));
+  return { unregistered: true };
+}
+
+export async function sendPushToUser(
+  uid: string,
+  title: string,
+  body: string,
+  platform?: PushPlatform,
+) {
   const account = getServiceAccount();
   const projectId = account.project_id;
   const accessToken = await getAccessToken(account);
-  const queryResponse = await fetch(
-    `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        structuredQuery: {
-          from: [{ collectionId: "pushTokens" }],
-          where: {
-            fieldFilter: {
-              field: { fieldPath: "uid" },
-              op: "EQUAL",
-              value: { stringValue: uid },
-            },
-          },
-        },
-      }),
-      cache: "no-store",
-    },
-  );
-  if (!queryResponse.ok) throw new Error("Nu am putut citi dispozitivele inregistrate.");
-  const rows = await queryResponse.json() as Array<{
-    document?: { name: string; fields?: Record<string, { stringValue?: string }> };
-  }>;
-  const tokens = rows
-    .map((row) => row.document ? {
-      name: row.document.name,
-      token: readString(row.document.fields, "token"),
-    } : null)
-    .filter((item): item is { name: string; token: string } => Boolean(item?.token));
+  const documents = await queryPushTokens(projectId, accessToken, "uid", uid);
+  const uniqueTokens = new Map<string, { name: string; token: string }>();
+  for (const document of documents) {
+    if (platform && readString(document.fields, "platform") !== platform) continue;
+    const token = readString(document.fields, "token");
+    if (token && !uniqueTokens.has(token)) {
+      uniqueTokens.set(token, { name: document.name, token });
+    }
+  }
+  const tokens = [...uniqueTokens.values()];
 
   if (!tokens.length) return { sent: 0, total: 0 };
 
